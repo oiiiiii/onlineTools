@@ -5,8 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mermaid 编辑器</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-    <!-- 提前声明 CSP 允许加载 CDN 脚本（解决 Cloudflare 可能的拦截） -->
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; blob:;">
+    <meta http-equiv="Content-Security-Policy" content="
+        script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net 'sha256-n6tX2bH0aaEToEUtLBZhk1qOzTIrrOi89ZKKsx+aFrQ=' 'sha256-ieoeWczDHkReVBsRBqaal5AFMlBtNjMzgwKvLqi/tSU=';
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data: blob:;
+        connect-src 'self';
+        object-src 'none';
+        base-uri 'self';
+    ">
     <style>
         * {
             margin: 0;
