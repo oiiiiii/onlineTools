@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mermaid 编辑器</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+
+    <!-- 移除直接引入的 Mermaid CDN，改为动态加载 -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            color: #333;
+        }
+        /* 响应式布局容器 */
+        .container {
+            display: flex;
+            flex-direction: row;
+            height: calc(100vh - 60px); /* 预留工具栏高度 */
+        }
+        /* 编辑区 - 新增行号容器样式 */
+        .editor-wrap {
+            flex: 1;
+            padding: 10px;
+            border-right: 1px solid #eee;
+            position: relative;
+        }
+        .code-editor-container {
+            display: flex;
+            height: 100%;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .line-numbers {
+            width: 40px;
+            background: #f5f5f5;
+            color: #999;
+            font-family: Consolas, Monaco, monospace;
+            font-size: 16px;
+            line-height: 1.5;
+            padding: 15px 5px;
+            text-align: right;
+            user-select: none;
+            overflow: hidden;
+            /* 关键：行号容器和编辑器行高保持严格一致 */
+            white-space: pre;
+        }
+        #editor {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            font-size: 16px; /* 放大字体避免误触 */
+            line-height: 1.5;
+            resize: none;
+            outline: none;
+            font-family: Consolas, Monaco, monospace;
+            background: transparent;
+            /* 关键：移除默认的textarea空白处理 */
+            white-space: pre;
+        }
+        /* 预览区 */
+        .preview-wrap {
+            flex: 1;
+            padding: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        #preview {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #mermaid-svg {
+            max-width: 100%;
+            max-height: 100%;
+            transition: transform 0.2s ease;
+            cursor: grab;
+        }
+        #mermaid-svg:active {
+            cursor: grabbing;
+        }
+        /* 底部工具栏 */
+        .toolbar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            background: #f8f9fa;
+            border-top: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding: 0 10px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 12px 20px; /* 放大按钮点击区域 */
+            border: none;
+            border-radius: 25px; /* 圆角按钮 */
+            background: #007bff;
+            color: white;
+            font-size: 16px; /* 放大按钮文字 */
+            cursor: pointer;
+            transition: background 0.2s;
+            margin: 0 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        /* 保存下拉菜单样式 - 修复消失问题 */
+        .save-menu {
+            position: relative;
+            display: inline-block;
+        }
+        .save-dropdown {
+            display: none;
+            position: absolute;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+            /* 关键：阻止鼠标事件穿透，确保菜单可点击 */
+            pointer-events: auto;
+            min-width: 150px; /* 增加最小宽度，避免选项换行 */
+        }
+        .save-dropdown button {
+            display: block;
+            width: 100%;
+            padding: 10px 20px;
+            border: none;
+            background: white;
+            color: #333;
+            text-align: left;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .save-dropdown button:hover {
+            background: #f5f5f5;
+        }
+        /* 移除原hover触发逻辑，改为JS控制 */
+        /* 移动端响应式适配 (<768px) */
+        @media (max-width: 767px) {
+            .container {
+                flex-direction: column; /* 上下分栏 */
+            }
+            .editor-wrap, .preview-wrap {
+                flex: none;
+                height: 50%; /* 各占50%高度 */
+            }
+            .editor-wrap {
+                border-right: none;
+                border-bottom: 1px solid #eee;
+            }
+            .toolbar {
+                height: auto;
+                padding: 10px;
+            }
+            .btn {
+                padding: 8px 15px;
+                font-size: 14px;
+                margin: 5px;
+            }
+            /* 移动端下拉菜单位置调整 */
+            .save-dropdown {
+                bottom: 60px;
+                left: 0;
+                transform: none;
+            }
+        }
+        /* 加载提示 */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <!-- 核心容器 -->
+    <div class="container">
+        <!-- 编辑区 - 新增行号容器 -->
+        <div class="editor-wrap">
+            <div class="code-editor-container">
+                <div class="line-numbers" id="lineNumbers"></div>
+                <!-- 核心修改2：清理textarea内的代码格式，确保是纯文本（无缩进/换行混乱） -->
+                <textarea id="editor">graph TD
+    A[开始] --> B{选择技术栈}
+    B -->|Python| C[FastAPI]
+    B -->|前端| D[Mermaid.js]
+    C --> E[本地运行]
+    D --> F[响应式布局]
+    E --> G[部署到Cloudflare]
+    F --> G
+    G --> H[完成]</textarea>
+            </div>
+        </div>
+        <!-- 预览区 -->
+        <div class="preview-wrap">
+            <div id="preview">
+                <div class="loading">渲染中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部工具栏 - 修改保存按钮为下拉菜单 -->
+    <div class="toolbar">
+        <button class="btn" id="render-btn">重新渲染</button>
+        <div class="save-menu">
+            <button class="btn" id="save-main-btn">保存文件 ▼</button>
+            <div class="save-dropdown" id="save-dropdown">
+                <button id="save-txt">保存为 TXT</button>
+                <button id="save-png">保存为 PNG</button>
+                <button id="save-svg">保存为 SVG</button>
+            </div>
+        </div>
+        <button class="btn" id="load-btn">加载文件</button>
+        <button class="btn btn-secondary" id="reset-btn">重置视图</button>
+    </div>
+
+    <script>
+        // 全局变量：Mermaid 加载状态
+        let mermaidLoaded = false;
+        // 全局变量：手势缩放相关
+        let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
+        let isDragging = false;
+        let startX, startY;
+
+        // DOM元素
+        const editor = document.getElementById('editor');
+        const lineNumbers = document.getElementById('lineNumbers');
+        const preview = document.getElementById('preview');
+        const renderBtn = document.getElementById('render-btn');
+        const loadBtn = document.getElementById('load-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const saveTxtBtn = document.getElementById('save-txt');
+        const savePngBtn = document.getElementById('save-png');
+        const saveSvgBtn = document.getElementById('save-svg');
+        const svgContainer = document.createElement('div');
+        svgContainer.id = 'mermaid-svg';
+        // 新增保存菜单相关DOM
+        const saveMainBtn = document.getElementById('save-main-btn');
+        const saveDropdown = document.getElementById('save-dropdown');
+        const saveMenu = document.querySelector('.save-menu');
+
+        // ========== 新增：动态加载 Mermaid 函数 ==========
+        async function loadMermaid() {
+            if (mermaidLoaded) return;
+            preview.innerHTML = '<div class="loading">加载渲染引擎中...</div>';
+            try {
+                const script = document.createElement('script');
+                // 替换为 Cloudflare 友好的 jsDelivr CDN
+                script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js';
+                script.async = true;
+                // 等待脚本加载完成
+                await new Promise((resolve, reject) => {
+                    script.onload = resolve;
+                    script.onerror = reject;
+                });
+                // 初始化 Mermaid
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: 'default',
+                    securityLevel: 'loose',
+                    flowchart: { useMaxWidth: false }
+                });
+                mermaidLoaded = true;
+            } catch (error) {
+                preview.innerHTML = `<div style="color: red; padding: 20px; text-align: left; font-size: 14px;">
+                    <strong>加载渲染引擎失败：</strong><br>${error.message}<br>
+                    <small>请刷新页面重试</small>
+                </div>`;
+                throw error;
+            }
+        }
+
+        // ========== 修复：行号显示功能 ==========
+        function updateLineNumbers() {
+            // 关键1：移除textarea首尾空白，避免空行导致行号错位
+            const cleanValue = editor.value.replace(/^\s+|\s+$/g, '');
+            const lines = cleanValue.split('\n');
+            const lineCount = lines.length;
+            let lineNumbersHtml = '';
+            for (let i = 1; i <= lineCount; i++) {
+                lineNumbersHtml += `${i}\n`;
+            }
+            // 关键2：设置行号文本，确保换行符生效
+            lineNumbers.textContent = lineNumbersHtml;
+            // 关键3：同步滚动位置（保持原有逻辑）
+            lineNumbers.scrollTop = editor.scrollTop;
+        }
+
+        // 初始化行号
+        updateLineNumbers();
+        // 输入时更新行号
+        editor.addEventListener('input', () => {
+            updateLineNumbers();
+        });
+        // 滚动同步
+        editor.addEventListener('scroll', () => {
+            lineNumbers.scrollTop = editor.scrollTop;
+        });
+
+        // ========== 核心渲染函数（重构：先加载再渲染） ==========
+        async function renderMermaid() {
+            try {
+                // 第一步：加载 Mermaid（首次渲染时触发）
+                await loadMermaid();
+
+                preview.innerHTML = '<div class="loading">渲染中...</div>';
+                const code = editor.value.trim();
+                if (!code) {
+                    preview.innerHTML = '<div class="loading">请输入Mermaid代码</div>';
+                    return;
+                }
+
+                // 渲染Mermaid图表（增加超时限制）
+                const renderPromise = mermaid.render('mermaid-chart', code);
+                // 设置5秒超时，避免无限等待
+                const { svg } = await Promise.race([
+                    renderPromise,
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("渲染超时")), 5000))
+                ]);
+
+                svgContainer.innerHTML = svg;
+                svgContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+                preview.innerHTML = '';
+                preview.appendChild(svgContainer);
+            } catch (error) {
+                // 明确显示错误信息，而非停留在加载状态
+                preview.innerHTML = `<div style="color: red; padding: 20px; text-align: left; font-size: 14px;">
+                    <strong>渲染失败：</strong><br>${error.message}<br>
+                    <small>请检查代码语法或刷新页面重试</small>
+                </div>`;
+                console.error('渲染失败详情:', error); // 控制台输出完整错误
+            }
+        }
+
+        // ========== 保存功能扩展 ==========
+        // 保存为TXT
+        function saveAsTxt() {
+            const code = editor.value;
+            const blob = new Blob([code], { type: 'text/plain' });
+            downloadFile(blob, 'mermaid-diagram.txt');
+            // 保存后关闭下拉菜单
+            saveDropdown.style.display = 'none';
+        }
+
+        // 保存为SVG
+        function saveAsSvg() {
+            const svgElement = svgContainer.querySelector('svg');
+            if (!svgElement) {
+                alert('暂无可保存的SVG图表，请先渲染图表');
+                return;
+            }
+
+            // 克隆SVG元素以保留样式
+            const clone = svgElement.cloneNode(true);
+            const svgData = new XMLSerializer().serializeToString(clone);
+            const blob = new Blob([svgData], { type: 'image/svg+xml' });
+            downloadFile(blob, 'mermaid-diagram.svg');
+            // 保存后关闭下拉菜单
+            saveDropdown.style.display = 'none';
+        }
+
+        // 保存为PNG
+        async function saveAsPng() {
+            const svgElement = svgContainer.querySelector('svg');
+            if (!svgElement) {
+                alert('暂无可保存的PNG图表，请先渲染图表');
+                return;
+            }
+
+            try {
+                // 序列化SVG
+                const svgData = new XMLSerializer().serializeToString(svgElement);
+                // 创建图片对象
+                const img = new Image();
+                const svgBlob = new Blob([svgData], { type: 'image/svg+xml' });
+                const svgUrl = URL.createObjectURL(svgBlob);
+
+                img.onload = function() {
+                    // 创建Canvas
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    // 设置Canvas尺寸为SVG实际尺寸
+                    canvas.width = svgElement.viewBox.baseVal.width || img.width;
+                    canvas.height = svgElement.viewBox.baseVal.height || img.height;
+                    // 绘制图片
+                    ctx.drawImage(img, 0, 0);
+                    // 下载PNG
+                    canvas.toBlob(blob => {
+                        downloadFile(blob, 'mermaid-diagram.png');
+                        URL.revokeObjectURL(svgUrl);
+                        // 保存后关闭下拉菜单
+                        saveDropdown.style.display = 'none';
+                    }, 'image/png');
+                };
+                img.src = svgUrl;
+            } catch (error) {
+                alert(`保存PNG失败：${error.message}`);
+                console.error('PNG保存失败:', error);
+                // 失败也关闭下拉菜单
+                saveDropdown.style.display = 'none';
+            }
+        }
+
+        // 通用下载函数
+        function downloadFile(blob, filename) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        // ========== 原有功能保留 ==========
+        // 加载文件功能
+        function loadFile() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.txt,.mmd,.mermaid';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    editor.value = event.target.result;
+                    updateLineNumbers(); // 加载文件后更新行号
+                    renderMermaid();
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // 重置视图
+        function resetView() {
+            scale = 1;
+            translateX = 0;
+            translateY = 0;
+            svgContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+        }
+
+        // 移动端手势缩放实现
+        function initGesture() {
+            let lastDistance = 0;
+
+            // 触摸开始
+            svgContainer.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (e.touches.length === 1) {
+                    // 单指拖动
+                    isDragging = true;
+                    startX = e.touches[0].clientX - translateX;
+                    startY = e.touches[0].clientY - translateY;
+                } else if (e.touches.length === 2) {
+                    // 双指缩放
+                    lastDistance = getDistance(e.touches[0], e.touches[1]);
+                }
+            });
+
+            // 触摸移动
+            svgContainer.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (e.touches.length === 1 && isDragging) {
+                    // 拖动逻辑
+                    translateX = e.touches[0].clientX - startX;
+                    translateY = e.touches[0].clientY - startY;
+                    svgContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+                } else if (e.touches.length === 2) {
+                    // 缩放逻辑
+                    const newDistance = getDistance(e.touches[0], e.touches[1]);
+                    const delta = newDistance - lastDistance;
+                    scale += delta * 0.001;
+                    // 限制缩放范围
+                    scale = Math.max(0.5, Math.min(scale, 3));
+                    lastDistance = newDistance;
+                    svgContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+                }
+            });
+
+            // 触摸结束
+            svgContainer.addEventListener('touchend', () => {
+                isDragging = false;
+            });
+
+            // 计算两点距离
+            function getDistance(touch1, touch2) {
+                const dx = touch2.clientX - touch1.clientX;
+                const dy = touch2.clientY - touch1.clientY;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+        }
+
+        // 桌面端鼠标拖动
+        function initDesktopDrag() {
+            svgContainer.addEventListener('mousedown', (e) => {
+                if (e.button === 0) { // 左键
+                    isDragging = true;
+                    startX = e.clientX - translateX;
+                    startY = e.clientY - startY;
+                }
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    translateX = e.clientX - startX;
+                    translateY = e.clientY - startY;
+                    svgContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            // 桌面端滚轮缩放
+            svgContainer.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                scale += e.deltaY * -0.001;
+                scale = Math.max(0.5, Math.min(scale, 3));
+                svgContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            });
+        }
+
+        // ========== 修复：保存菜单点击消失问题 ==========
+        // 切换保存下拉菜单显示/隐藏
+        function toggleSaveDropdown() {
+            saveDropdown.style.display = saveDropdown.style.display === 'block' ? 'none' : 'block';
+        }
+
+        // 点击保存主按钮切换菜单
+        saveMainBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止事件冒泡到document
+            toggleSaveDropdown();
+        });
+
+        // 点击下拉菜单内的选项不关闭菜单（直到执行保存操作）
+        saveDropdown.addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止事件冒泡到document
+        });
+
+        // 点击页面其他区域关闭下拉菜单
+        document.addEventListener('click', () => {
+            saveDropdown.style.display = 'none';
+        });
+
+        // ========== 事件绑定 ==========
+        renderBtn.addEventListener('click', renderMermaid);
+        loadBtn.addEventListener('click', loadFile);
+        resetBtn.addEventListener('click', resetView);
+        saveTxtBtn.addEventListener('click', saveAsTxt);
+        saveSvgBtn.addEventListener('click', saveAsSvg);
+        savePngBtn.addEventListener('click', saveAsPng);
+
+        // ========== 初始化 ==========
+        window.addEventListener('load', async () => {
+            await renderMermaid(); // 等待渲染完成后再绑定事件
+            // 先判断是否是移动端，再初始化对应功能
+            const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if (isMobile) {
+                initGesture();
+            } else {
+                initDesktopDrag();
+            }
+        });
+
+        // 窗口大小变化时重新渲染
+        window.addEventListener('resize', renderMermaid);
+    </script>
+</body>
+</html>
