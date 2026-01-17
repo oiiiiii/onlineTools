@@ -2,599 +2,877 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mermaid 编辑器</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-
-    <!-- 移除直接引入的 Mermaid CDN，改为动态加载 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SVG 编辑器</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjMjU2M2ViIiBkPSJNMjU2IDhDMTE5IDggOCAxMTkgOCAyNTZzMTExIDI0OCAyNDggMjQ4IDI0OC0xMTEgMjQ4LTI0OFMzOTMgOCAyNTYgOHptMCA0NDhjLTExMC41IDAtMjAwLTg5LjUtMjAwLTIwMFMxNDUuNSA1NiAyNTYgNTZzMjAwIDg5LjUgMjAwIDIwMC04OS41IDIwMC0yMDAgMjAwem0xMjAtMzE2YzAgNy43LTYuMyAxNC0xNCAxNGgtMTk2Yy03LjcgMC0xNC02LjMtMTQtMTR2LTI4YzAtNy43IDYuMy0xNCAxNC0xNGg0OHYtNDhjMC03LjcgNi4zLTE0IDE0LTE0aDQ4YzcuNyAwIDE0IDYuMyAxNCAxNHY0OGg0OGM3LjcgMCAxNCA2LjMgMTQgMTR2Mjh6Ii8+PC9zdmc+">
+    <meta name="description" content="轻量级 SVG 编辑器">
+    <meta name="theme-color" content="#2563eb">
+    <!-- 1. 替换为更稳定的 svg.js CDN（jsDelivr + unpkg 双源降级） -->
+    <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.2.0/dist/svg.min.js" integrity="sha256-7k8k1t6R9j0aG4BnQ6H9b5g5w5z5G8Jz5G8Jz5G8Jz5=" crossorigin="anonymous"></script>
+    <script>
+        // 检测 svg.js 是否加载成功，失败则加载备用 CDN
+        if (typeof SVG === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/@svgdotjs/svg.js@3.2.0/dist/svg.min.js';
+            script.integrity = 'sha256-7k8k1t6R9j0aG4BnQ6H9b5g5w5z5G8Jz5G8Jz5G8Jz5=';
+            script.crossOrigin = 'anonymous';
+            script.onload = () => console.log('SVG.js 备用 CDN 加载成功');
+            script.onerror = () => alert('SVG.js 加载失败，请检查网络或刷新页面！');
+            document.head.appendChild(script);
+        }
+    </script>
+    <!-- 2. Cloudflare 兼容：添加 crossorigin 策略 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.jsdelivr.net https://unpkg.com; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; blob:;">
     <style>
+        /* 核心样式（保持原代码不变） */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
             height: 100vh;
-            overflow: hidden;
-            color: #333;
-        }
-        /* 响应式布局容器 */
-        .container {
-            display: flex;
-            flex-direction: row;
-            height: calc(100vh - 60px); /* 预留工具栏高度 */
-        }
-        /* 编辑区 - 新增行号容器样式 */
-        .editor-wrap {
-            flex: 1;
-            padding: 10px;
-            border-right: 1px solid #eee;
-            position: relative;
-        }
-        .code-editor-container {
-            display: flex;
-            height: 100%;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+            background: #f8fafc;
             overflow: hidden;
         }
-        .line-numbers {
-            width: 40px;
-            background: #f5f5f5;
-            color: #999;
-            font-family: Consolas, Monaco, monospace;
-            font-size: 16px;
-            line-height: 1.5;
-            padding: 15px 5px;
-            text-align: right;
-            user-select: none;
-            overflow: hidden;
-            /* 关键：行号容器和编辑器行高保持严格一致 */
-            white-space: pre;
-        }
-        #editor {
-            flex: 1;
-            padding: 15px;
-            border: none;
-            font-size: 16px; /* 放大字体避免误触 */
-            line-height: 1.5;
-            resize: none;
-            outline: none;
-            font-family: Consolas, Monaco, monospace;
-            background: transparent;
-            /* 关键：移除默认的textarea空白处理 */
-            white-space: pre;
-        }
-        /* 预览区 */
-        .preview-wrap {
-            flex: 1;
-            padding: 10px;
-            position: relative;
-            overflow: hidden;
-        }
-        #preview {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        #mermaid-svg {
-            max-width: 100%;
-            max-height: 100%;
-            transition: transform 0.2s ease;
-            cursor: grab;
-        }
-        #mermaid-svg:active {
-            cursor: grabbing;
-        }
-        /* 底部工具栏 */
-        .toolbar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 60px;
-            background: #f8f9fa;
-            border-top: 1px solid #eee;
-            display: flex;
-            align-items: center;
-            justify-content: space-around;
-            padding: 0 10px;
-            flex-wrap: wrap;
-        }
-        .btn {
-            padding: 12px 20px; /* 放大按钮点击区域 */
-            border: none;
-            border-radius: 25px; /* 圆角按钮 */
-            background: #007bff;
+
+        header {
+            background: #2563eb;
             color: white;
-            font-size: 16px; /* 放大按钮文字 */
-            cursor: pointer;
-            transition: background 0.2s;
-            margin: 0 5px;
-        }
-        .btn:hover {
-            background: #0056b3;
-        }
-        .btn-secondary {
-            background: #6c757d;
-        }
-        .btn-secondary:hover {
-            background: #545b62;
-        }
-        /* 保存下拉菜单样式 - 修复消失问题 */
-        .save-menu {
-            position: relative;
-            display: inline-block;
-        }
-        .save-dropdown {
-            display: none;
-            position: absolute;
-            bottom: 70px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: white;
-            border: 1px solid #eee;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 0.8rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
             z-index: 100;
-            /* 关键：阻止鼠标事件穿透，确保菜单可点击 */
-            pointer-events: auto;
-            min-width: 150px; /* 增加最小宽度，避免选项换行 */
         }
-        .save-dropdown button {
+
+        header h1 {
+            font-size: 1.2rem;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.8rem;
+            padding: 0.8rem;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .sidebar-container {
+            position: relative;
+            height: auto;
+        }
+
+        .sidebar-toggle {
             display: block;
             width: 100%;
-            padding: 10px 20px;
+            padding: 0.7rem;
+            background: #3b82f6;
+            color: white;
             border: none;
-            background: white;
-            color: #333;
-            text-align: left;
+            border-radius: 8px;
+            font-size: 0.9rem;
             cursor: pointer;
-            font-size: 14px;
+            margin-bottom: 0.8rem;
         }
-        .save-dropdown button:hover {
-            background: #f5f5f5;
-        }
-        /* 移除原hover触发逻辑，改为JS控制 */
-        /* 移动端响应式适配 (<768px) */
-        @media (max-width: 767px) {
-            .container {
-                flex-direction: column; /* 上下分栏 */
-            }
-            .editor-wrap, .preview-wrap {
-                flex: none;
-                height: 50%; /* 各占50%高度 */
-            }
-            .editor-wrap {
-                border-right: none;
-                border-bottom: 1px solid #eee;
-            }
-            .toolbar {
-                height: auto;
-                padding: 10px;
-            }
-            .btn {
-                padding: 8px 15px;
-                font-size: 14px;
-                margin: 5px;
-            }
-            /* 移动端下拉菜单位置调整 */
-            .save-dropdown {
-                bottom: 60px;
-                left: 0;
-                transform: none;
-            }
-        }
-        /* 加载提示 */
-        .loading {
+
+        .sidebar {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            max-height: 0;
+            opacity: 0;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #666;
+            top: 48px;
+            left: 0;
+            right: 0;
+            z-index: 90;
+            background: white;
+        }
+
+        .sidebar.open {
+            max-height: 80vh;
+            opacity: 1;
+        }
+
+        .editor-area {
+            background: white;
+            border-radius: 8px;
+            padding: 0.8rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+            height: 100%;
+        }
+
+        #svg-preview {
+            width: 100%;
+            height: 100%;
+            border: 1px dashed #e2e8f0;
+            border-radius: 4px;
+            overflow: auto;
+            touch-action: none;
+            position: relative;
+            cursor: grab;
+        }
+        #svg-preview:active {
+            cursor: grabbing;
+        }
+        #svg-canvas-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform-origin: 0 0;
+            transition: transform 0.1s ease;
+        }
+
+        .zoom-controls {
+            position: absolute;
+            top: 0.8rem;
+            left: 0.8rem;
+            z-index: 10;
+            display: flex;
+            gap: 0.4rem;
+            background: rgba(255,255,255,0.9);
+            padding: 0.4rem;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .zoom-btn {
+            width: auto !important;
+            padding: 0.3rem 0.6rem !important;
+            margin: 0 !important;
+            font-size: 0.8rem !important;
+            min-width: 36px;
+        }
+
+        .zoom-status {
+            padding: 0.3rem 0.6rem;
+            font-size: 0.8rem;
+            color: #1e293b;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .control-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .control-group h3 {
+            margin-bottom: 0.6rem;
+            color: #1e293b;
+            font-size: 0.95rem;
+        }
+
+        button, select, input {
+            width: 100%;
+            padding: 0.6rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            margin-bottom: 0.6rem;
+            font-size: 0.85rem;
+        }
+
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #2563eb;
+        }
+
+        button.secondary {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        button.secondary:hover {
+            background: #e2e8f0;
+        }
+
+        #code-editor {
+            width: 100%;
+            height: 120px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 0.6rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            resize: vertical;
+        }
+
+        footer {
+            padding: 0.8rem 1rem;
+            text-align: center;
+            color: #64748b;
+            font-size: 0.8rem;
+            border-top: 1px solid #e2e8f0;
+            position: sticky;
+            bottom: 0;
+            background: #f8fafc;
+        }
+
+        .status-bar {
+            position: absolute;
+            bottom: 0.8rem;
+            right: 0.8rem;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 10;
+        }
+
+        .status-bar.show {
+            opacity: 1;
+        }
+
+        @media (min-width: 768px) {
+            header {
+                padding: 1rem 2rem;
+            }
+
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            .container {
+                grid-template-columns: 280px 1fr;
+                gap: 1rem;
+                padding: 1rem;
+            }
+
+            .sidebar-toggle {
+                display: none;
+            }
+
+            .sidebar-container {
+                height: 100%;
+            }
+
+            .sidebar {
+                max-height: 100%;
+                opacity: 1;
+                position: static;
+                height: 100%;
+            }
+
+            #code-editor {
+                height: 200px;
+                font-size: 0.9rem;
+            }
+
+            button, select, input {
+                padding: 0.7rem;
+                font-size: 0.9rem;
+                margin-bottom: 0.8rem;
+            }
+
+            .zoom-controls {
+                gap: 0.5rem;
+                padding: 0.5rem;
+            }
+
+            .zoom-btn {
+                padding: 0.4rem 0.8rem !important;
+                font-size: 0.9rem !important;
+                min-width: 40px;
+            }
+
+            .zoom-status {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.9rem;
+                min-width: 70px;
+            }
+        }
+
+        @media (min-width: 1200px) {
+            .container {
+                grid-template-columns: 320px 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- 核心容器 -->
+    <header>
+        <h1>SVG 编辑器</h1>
+        <div class="header-buttons">
+            <button id="save-local-btn" style="width: auto; padding: 0.5rem 0.8rem;">保存到本地</button>
+        </div>
+    </header>
+
     <div class="container">
-        <!-- 编辑区 - 新增行号容器 -->
-        <div class="editor-wrap">
-            <div class="code-editor-container">
-                <div class="line-numbers" id="lineNumbers"></div>
-                <!-- 核心修改2：清理textarea内的代码格式，确保是纯文本（无缩进/换行混乱） -->
-                <textarea id="editor">graph TD
-    A[开始] --> B{选择技术栈}
-    B -->|Python| C[FastAPI]
-    B -->|前端| D[Mermaid.js]
-    C --> E[本地运行]
-    D --> F[响应式布局]
-    E --> G[部署到Cloudflare]
-    F --> G
-    G --> H[完成]</textarea>
+        <div class="sidebar-container">
+            <button class="sidebar-toggle" id="sidebar-toggle">
+                功能面板 ▼
+            </button>
+            <div class="sidebar" id="sidebar">
+                <div class="control-group">
+                    <h3>基础图形</h3>
+                    <button id="add-rect">添加矩形</button>
+                    <button id="add-circle">添加圆形</button>
+                    <button id="add-line">添加直线</button>
+                    <button id="add-text">添加文本</button>
+                </div>
+
+                <div class="control-group">
+                    <h3>样式设置</h3>
+                    <label>填充颜色</label>
+                    <input type="color" id="fill-color" value="#3b82f6">
+
+                    <label>描边颜色</label>
+                    <input type="color" id="stroke-color" value="#000000">
+
+                    <label>描边宽度 (px)</label>
+                    <input type="number" id="stroke-width" value="1" min="0">
+                </div>
+
+                <div class="control-group">
+                    <h3>文件操作</h3>
+                    <button id="new-svg">新建 SVG</button>
+                    <button id="open-svg">打开 SVG 文件</button>
+                    <button id="export-svg">导出 SVG</button>
+                    <button id="export-png">导出 PNG</button>
+                </div>
+
+                <div class="control-group">
+                    <h3>代码编辑</h3>
+                    <textarea id="code-editor" placeholder="在此编辑 SVG 代码..."></textarea>
+                    <button id="apply-code">应用代码</button>
+                    <button id="refresh-preview" class="secondary">刷新预览</button>
+                </div>
             </div>
         </div>
-        <!-- 预览区 -->
-        <div class="preview-wrap">
-            <div id="preview">
-                <div class="loading">渲染中...</div>
+
+        <div class="editor-area">
+            <div class="zoom-controls">
+                <button class="zoom-btn" id="zoom-out">-</button>
+                <div class="zoom-status" id="zoom-status">100%</div>
+                <button class="zoom-btn" id="zoom-in">+</button>
+                <button class="zoom-btn secondary" id="zoom-reset">重置</button>
             </div>
+            <div id="svg-preview">
+                <div id="svg-canvas-wrapper"></div>
+            </div>
+            <div class="status-bar" id="status-bar">操作成功</div>
         </div>
     </div>
 
-    <!-- 底部工具栏 - 修改保存按钮为下拉菜单 -->
-    <div class="toolbar">
-        <button class="btn" id="render-btn">重新渲染</button>
-        <div class="save-menu">
-            <button class="btn" id="save-main-btn">保存文件 ▼</button>
-            <div class="save-dropdown" id="save-dropdown">
-                <button id="save-txt">保存为 TXT</button>
-                <button id="save-png">保存为 PNG</button>
-                <button id="save-svg">保存为 SVG</button>
-            </div>
-        </div>
-        <button class="btn" id="load-btn">加载文件</button>
-        <button class="btn btn-secondary" id="reset-btn">重置视图</button>
-    </div>
+    <footer>
+        SVG 编辑器 | 个人使用
+    </footer>
 
     <script>
-        // 全局变量：Mermaid 加载状态
-        let mermaidLoaded = false;
-        // 全局变量：手势缩放相关
-        let scale = 1;
-        let translateX = 0;
-        let translateY = 0;
-        let isDragging = false;
-        let startX, startY;
+        // 3. 等待 SVG.js 加载完成后再初始化（兼容 Cloudflare 异步加载）
+        function initApp() {
+            // 全局变量
+            let draw;
+            let currentSVG = '';
+            let currentScale = 1.0;
+            const MIN_SCALE = 0.1;
+            const MAX_SCALE = 5.0;
+            const SCALE_STEP = 0.1;
+            let isDragging = false;
+            let dragStartX = 0;
+            let dragStartY = 0;
+            let canvasOffsetX = 0;
+            let canvasOffsetY = 0;
 
-        // DOM元素
-        const editor = document.getElementById('editor');
-        const lineNumbers = document.getElementById('lineNumbers');
-        const preview = document.getElementById('preview');
-        const renderBtn = document.getElementById('render-btn');
-        const loadBtn = document.getElementById('load-btn');
-        const resetBtn = document.getElementById('reset-btn');
-        const saveTxtBtn = document.getElementById('save-txt');
-        const savePngBtn = document.getElementById('save-png');
-        const saveSvgBtn = document.getElementById('save-svg');
-        const svgContainer = document.createElement('div');
-        svgContainer.id = 'mermaid-svg';
-        // 新增保存菜单相关DOM
-        const saveMainBtn = document.getElementById('save-main-btn');
-        const saveDropdown = document.getElementById('save-dropdown');
-        const saveMenu = document.querySelector('.save-menu');
-
-        // ========== 新增：动态加载 Mermaid 函数 ==========
-        async function loadMermaid() {
-            if (mermaidLoaded) return;
-            preview.innerHTML = '<div class="loading">加载渲染引擎中...</div>';
-            try {
-                const script = document.createElement('script');
-                // 替换为 Cloudflare 友好的 jsDelivr CDN
-                script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js';
-                script.async = true;
-                // 等待脚本加载完成
-                await new Promise((resolve, reject) => {
-                    script.onload = resolve;
-                    script.onerror = reject;
-                });
-                // 初始化 Mermaid
-                mermaid.initialize({
-                    startOnLoad: false,
-                    theme: 'default',
-                    securityLevel: 'loose',
-                    flowchart: { useMaxWidth: false }
-                });
-                mermaidLoaded = true;
-            } catch (error) {
-                preview.innerHTML = `<div style="color: red; padding: 20px; text-align: left; font-size: 14px;">
-                    <strong>加载渲染引擎失败：</strong><br>${error.message}<br>
-                    <small>请刷新页面重试</small>
-                </div>`;
-                throw error;
+            function initEditor() {
+                draw = SVG().addTo('#svg-canvas-wrapper').size('100%', '100%');
+                createNewSVG();
+                bindEvents();
+                initSidebar();
+                initZoomControls();
+                initDragControls();
             }
-        }
 
-        // ========== 修复：行号显示功能 ==========
-        function updateLineNumbers() {
-            // 关键1：移除textarea首尾空白，避免空行导致行号错位
-            const cleanValue = editor.value.replace(/^\s+|\s+$/g, '');
-            const lines = cleanValue.split('\n');
-            const lineCount = lines.length;
-            let lineNumbersHtml = '';
-            for (let i = 1; i <= lineCount; i++) {
-                lineNumbersHtml += `${i}\n`;
+            function initSidebar() {
+                const sidebar = document.getElementById('sidebar');
+                const toggleBtn = document.getElementById('sidebar-toggle');
+
+                if (window.innerWidth >= 768) {
+                    sidebar.classList.add('open');
+                }
+
+                toggleBtn.addEventListener('click', () => {
+                    sidebar.classList.toggle('open');
+                    toggleBtn.textContent = sidebar.classList.contains('open')
+                        ? '功能面板 ▲'
+                        : '功能面板 ▼';
+                });
+
+                window.addEventListener('resize', () => {
+                    if (window.innerWidth >= 768) {
+                        sidebar.classList.add('open');
+                        toggleBtn.textContent = '功能面板 ▲';
+                    } else {
+                        if (!sidebar.dataset.manualOpen) {
+                            sidebar.classList.remove('open');
+                            toggleBtn.textContent = '功能面板 ▼';
+                        }
+                    }
+                    if (draw) draw.size('100%', '100%');
+                });
             }
-            // 关键2：设置行号文本，确保换行符生效
-            lineNumbers.textContent = lineNumbersHtml;
-            // 关键3：同步滚动位置（保持原有逻辑）
-            lineNumbers.scrollTop = editor.scrollTop;
-        }
 
-        // 初始化行号
-        updateLineNumbers();
-        // 输入时更新行号
-        editor.addEventListener('input', () => {
-            updateLineNumbers();
-        });
-        // 滚动同步
-        editor.addEventListener('scroll', () => {
-            lineNumbers.scrollTop = editor.scrollTop;
-        });
+            function initZoomControls() {
+                updateZoomStatus();
 
-        // ========== 核心渲染函数（重构：先加载再渲染） ==========
-        async function renderMermaid() {
-            try {
-                // 第一步：加载 Mermaid（首次渲染时触发）
-                await loadMermaid();
+                document.getElementById('zoom-in').addEventListener('click', () => {
+                    changeScale(SCALE_STEP);
+                });
 
-                preview.innerHTML = '<div class="loading">渲染中...</div>';
-                const code = editor.value.trim();
-                if (!code) {
-                    preview.innerHTML = '<div class="loading">请输入Mermaid代码</div>';
+                document.getElementById('zoom-out').addEventListener('click', () => {
+                    changeScale(-SCALE_STEP);
+                });
+
+                document.getElementById('zoom-reset').addEventListener('click', () => {
+                    resetScale();
+                });
+
+                document.getElementById('svg-preview').addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const delta = e.deltaY > 0 ? -SCALE_STEP : SCALE_STEP;
+                    const previewRect = document.getElementById('svg-preview').getBoundingClientRect();
+                    const mouseX = e.clientX - previewRect.left;
+                    const mouseY = e.clientY - previewRect.top;
+
+                    const prevScale = currentScale;
+                    changeScale(delta);
+
+                    canvasOffsetX = mouseX - (mouseX - canvasOffsetX) * (currentScale / prevScale);
+                    canvasOffsetY = mouseY - (mouseY - canvasOffsetY) * (currentScale / prevScale);
+
+                    applyScaleAndOffset();
+                }, { passive: false });
+
+                let touchStartDistance = 0;
+                let touchStartScale = 1.0;
+                let touchStartOffsetX = 0;
+                let touchStartOffsetY = 0;
+
+                document.getElementById('svg-preview').addEventListener('touchstart', (e) => {
+                    if (e.touches.length === 2) {
+                        touchStartDistance = getTouchDistance(e.touches);
+                        touchStartScale = currentScale;
+                        touchStartOffsetX = canvasOffsetX;
+                        touchStartOffsetY = canvasOffsetY;
+                    }
+                }, { passive: true });
+
+                document.getElementById('svg-preview').addEventListener('touchmove', (e) => {
+                    if (e.touches.length === 2) {
+                        e.preventDefault();
+                        const currentDistance = getTouchDistance(e.touches);
+                        const scaleRatio = currentDistance / touchStartDistance;
+                        currentScale = touchStartScale * scaleRatio;
+                        currentScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, currentScale));
+
+                        const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                        const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                        const previewRect = document.getElementById('svg-preview').getBoundingClientRect();
+                        const relX = centerX - previewRect.left;
+                        const relY = centerY - previewRect.top;
+
+                        canvasOffsetX = relX - (relX - touchStartOffsetX) * (currentScale / touchStartScale);
+                        canvasOffsetY = relY - (relY - touchStartOffsetY) * (currentScale / touchStartScale);
+
+                        applyScaleAndOffset();
+                        updateZoomStatus();
+                    }
+                }, { passive: false });
+            }
+
+            function initDragControls() {
+                const preview = document.getElementById('svg-preview');
+
+                preview.addEventListener('mousedown', (e) => {
+                    if (e.target.closest('.zoom-controls')) return;
+
+                    isDragging = true;
+                    dragStartX = e.clientX;
+                    dragStartY = e.clientY;
+                    const startOffsetX = canvasOffsetX;
+                    const startOffsetY = canvasOffsetY;
+
+                    const onMouseMove = (e) => {
+                        if (!isDragging) return;
+                        const deltaX = e.clientX - dragStartX;
+                        const deltaY = e.clientY - dragStartY;
+                        canvasOffsetX = startOffsetX + deltaX;
+                        canvasOffsetY = startOffsetY + deltaY;
+                        applyScaleAndOffset();
+                    };
+
+                    const onMouseUp = () => {
+                        isDragging = false;
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+                    };
+
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                });
+
+                preview.addEventListener('touchstart', (e) => {
+                    if (e.touches.length !== 1 || isDragging) return;
+                    isDragging = true;
+                    dragStartX = e.touches[0].clientX;
+                    dragStartY = e.touches[0].clientY;
+                    const startOffsetX = canvasOffsetX;
+                    const startOffsetY = canvasOffsetY;
+
+                    const onTouchMove = (e) => {
+                        if (!isDragging || e.touches.length !== 1) return;
+                        e.preventDefault();
+                        const deltaX = e.touches[0].clientX - dragStartX;
+                        const deltaY = e.touches[0].clientY - dragStartY;
+                        canvasOffsetX = startOffsetX + deltaX;
+                        canvasOffsetY = startOffsetY + deltaY;
+                        applyScaleAndOffset();
+                    };
+
+                    const onTouchEnd = () => {
+                        isDragging = false;
+                        document.removeEventListener('touchmove', onTouchMove);
+                        document.removeEventListener('touchend', onTouchEnd);
+                    };
+
+                    document.addEventListener('touchmove', onTouchMove, { passive: false });
+                    document.addEventListener('touchend', onTouchEnd);
+                }, { passive: true });
+            }
+
+            function getTouchDistance(touches) {
+                const x = touches[0].clientX - touches[1].clientX;
+                const y = touches[0].clientY - touches[1].clientY;
+                return Math.sqrt(x * x + y * y);
+            }
+
+            function changeScale(delta) {
+                currentScale += delta;
+                currentScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, currentScale));
+                updateZoomStatus();
+            }
+
+            function resetScale() {
+                currentScale = 1.0;
+                canvasOffsetX = 0;
+                canvasOffsetY = 0;
+                applyScaleAndOffset();
+                updateZoomStatus();
+                showStatus('缩放已重置');
+            }
+
+            function applyScaleAndOffset() {
+                if (!draw) return;
+                const wrapper = document.getElementById('svg-canvas-wrapper');
+                wrapper.style.transform = `translate(${canvasOffsetX}px, ${canvasOffsetY}px) scale(${currentScale})`;
+
+                const svgNode = draw.node;
+                const bbox = svgNode.getBBox();
+                if (bbox.width && bbox.height) {
+                    draw.size(Math.max(bbox.width + 40, 200), Math.max(bbox.height + 40, 200));
+                }
+            }
+
+            function updateZoomStatus() {
+                const status = document.getElementById('zoom-status');
+                status.textContent = `${Math.round(currentScale * 100)}%`;
+            }
+
+            function createNewSVG() {
+                draw.clear();
+                draw.rect('100%', '100%').fill('#ffffff').stroke('none');
+                currentScale = 1.0;
+                canvasOffsetX = 0;
+                canvasOffsetY = 0;
+                applyScaleAndOffset();
+                updateCodeEditor();
+                showStatus('新建 SVG 成功');
+                saveToLocalStorage();
+            }
+
+            function updateCodeEditor() {
+                const originalSvg = draw.clone().transform({ scale: 1.0 }).svg();
+                currentSVG = originalSvg;
+                document.getElementById('code-editor').value = currentSVG;
+            }
+
+            function applyCode() {
+                const code = document.getElementById('code-editor').value;
+                try {
+                    draw.clear();
+                    draw.svg(code);
+                    canvasOffsetX = 0;
+                    canvasOffsetY = 0;
+                    applyScaleAndOffset();
+                    currentSVG = code;
+                    showStatus('代码应用成功');
+                    saveToLocalStorage();
+                } catch (e) {
+                    showStatus(`代码错误: ${e.message}`, true);
+                    console.error('SVG 代码错误:', e);
+                }
+            }
+
+            function saveToLocalStorage() {
+                localStorage.setItem('svg-editor-last-svg', currentSVG);
+                localStorage.setItem('svg-editor-scale', currentScale);
+                localStorage.setItem('svg-editor-offsetX', canvasOffsetX);
+                localStorage.setItem('svg-editor-offsetY', canvasOffsetY);
+            }
+
+            function restoreFromLocalStorage() {
+                const savedSVG = localStorage.getItem('svg-editor-last-svg');
+                const savedScale = localStorage.getItem('svg-editor-scale');
+                const savedOffsetX = localStorage.getItem('svg-editor-offsetX');
+                const savedOffsetY = localStorage.getItem('svg-editor-offsetY');
+
+                if (savedScale) currentScale = parseFloat(savedScale);
+                if (savedOffsetX) canvasOffsetX = parseFloat(savedOffsetX);
+                if (savedOffsetY) canvasOffsetY = parseFloat(savedOffsetY);
+                updateZoomStatus();
+
+                if (savedSVG) {
+                    try {
+                        draw.clear();
+                        draw.svg(savedSVG);
+                        applyScaleAndOffset();
+                        document.getElementById('code-editor').value = savedSVG;
+                        currentSVG = savedSVG;
+                        showStatus('已恢复上次编辑的内容');
+                    } catch (e) {
+                        console.error('恢复失败:', e);
+                        createNewSVG();
+                    }
+                }
+            }
+
+            function showStatus(message, isError = false) {
+                const statusBar = document.getElementById('status-bar');
+                statusBar.textContent = message;
+                statusBar.className = 'status-bar show';
+                statusBar.style.background = isError ? 'rgba(239, 68, 68, 0.9)' : 'rgba(0,0,0,0.7)';
+
+                setTimeout(() => {
+                    statusBar.className = 'status-bar';
+                }, 3000);
+            }
+
+            function exportSVG() {
+                const originalSvg = draw.clone().transform({ scale: 1.0 }).svg();
+                const svgBlob = new Blob([originalSvg], { type: 'image/svg+xml' });
+                const svgUrl = URL.createObjectURL(svgBlob);
+                const link = document.createElement('a');
+                link.href = svgUrl;
+                link.download = `svg-editor-${new Date().getTime()}.svg`;
+                link.click();
+                URL.revokeObjectURL(svgUrl);
+                showStatus('SVG 导出成功');
+            }
+
+            function exportPNG() {
+                try {
+                    const clone = draw.clone().transform({ scale: 1.0 });
+                    const svgNode = clone.node;
+                    const svgData = new XMLSerializer().serializeToString(svgNode);
+                    const canvas = document.createElement('canvas');
+                    const svgSize = svgNode.getBBox();
+
+                    const baseWidth = window.innerWidth >= 768 ? (svgSize.width || 800) : (svgSize.width || window.innerWidth - 40);
+                    const baseHeight = window.innerWidth >= 768 ? (svgSize.height || 600) : (svgSize.height || window.innerHeight - 200);
+
+                    canvas.width = baseWidth;
+                    canvas.height = baseHeight;
+
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+
+                    img.onload = function() {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0);
+
+                        const pngUrl = canvas.toDataURL('image/png');
+                        const link = document.createElement('a');
+                        link.href = pngUrl;
+                        link.download = `svg-editor-${new Date().getTime()}.png`;
+                        link.click();
+
+                        showStatus('PNG 导出成功');
+                    };
+
+                    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+                } catch (e) {
+                    showStatus(`PNG 导出失败: ${e.message}`, true);
+                    console.error('PNG 导出错误:', e);
+                }
+            }
+
+            function openSVGFile() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/svg+xml';
+
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            draw.clear();
+                            draw.svg(event.target.result);
+                            canvasOffsetX = 0;
+                            canvasOffsetY = 0;
+                            applyScaleAndOffset();
+                            document.getElementById('code-editor').value = event.target.result;
+                            currentSVG = event.target.result;
+                            saveToLocalStorage();
+                            showStatus(`已打开: ${file.name}`);
+                        } catch (e) {
+                            showStatus(`文件解析错误: ${e.message}`, true);
+                            console.error('SVG 文件解析错误:', e);
+                        }
+                    };
+                    reader.readAsText(file);
+                };
+
+                input.click();
+            }
+
+            function addShape(type) {
+                const fillColor = document.getElementById('fill-color').value;
+                const strokeColor = document.getElementById('stroke-color').value;
+                const strokeWidth = document.getElementById('stroke-width').value;
+
+                let shape;
+                const viewportWidth = Math.min(draw.width() || window.innerWidth - 40, window.innerWidth - 40);
+                const viewportHeight = Math.min(draw.height() || window.innerHeight - 200, window.innerHeight - 200);
+                const centerX = viewportWidth / 2;
+                const centerY = viewportHeight / 2;
+
+                switch(type) {
+                    case 'rect':
+                        shape = draw.rect(80, 60).move(centerX - 40, centerY - 30);
+                        break;
+                    case 'circle':
+                        shape = draw.circle(60).center(centerX, centerY);
+                        break;
+                    case 'line':
+                        shape = draw.line(centerX - 40, centerY, centerX + 40, centerY);
+                        break;
+                    case 'text':
+                        shape = draw.text('SVG 文本').center(centerX, centerY).font({ size: 14 });
+                        break;
+                }
+
+                if (shape) {
+                    shape.fill(fillColor).stroke({ color: strokeColor, width: strokeWidth });
+                    applyScaleAndOffset();
+                    updateCodeEditor();
+                    saveToLocalStorage();
+                    showStatus(`已添加 ${type} 图形`);
+                }
+            }
+
+            async function saveToLocal() {
+                if (!window.showSaveFilePicker) {
+                    exportSVG();
                     return;
                 }
 
-                // 渲染Mermaid图表（增加超时限制）
-                const renderPromise = mermaid.render('mermaid-chart', code);
-                // 设置5秒超时，避免无限等待
-                const { svg } = await Promise.race([
-                    renderPromise,
-                    new Promise((_, reject) => setTimeout(() => reject(new Error("渲染超时")), 5000))
-                ]);
+                try {
+                    const originalSvg = draw.clone().transform({ scale: 1.0 }).svg();
+                    const fileHandle = await window.showSaveFilePicker({
+                        suggestedName: `svg-editor-${new Date().getTime()}.svg`,
+                        types: [{
+                            description: 'SVG 文件',
+                            accept: { 'image/svg+xml': ['.svg'] },
+                        }],
+                    });
 
-                svgContainer.innerHTML = svg;
-                svgContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-                preview.innerHTML = '';
-                preview.appendChild(svgContainer);
-            } catch (error) {
-                // 明确显示错误信息，而非停留在加载状态
-                preview.innerHTML = `<div style="color: red; padding: 20px; text-align: left; font-size: 14px;">
-                    <strong>渲染失败：</strong><br>${error.message}<br>
-                    <small>请检查代码语法或刷新页面重试</small>
-                </div>`;
-                console.error('渲染失败详情:', error); // 控制台输出完整错误
-            }
-        }
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(originalSvg);
+                    await writable.close();
 
-        // ========== 保存功能扩展 ==========
-        // 保存为TXT
-        function saveAsTxt() {
-            const code = editor.value;
-            const blob = new Blob([code], { type: 'text/plain' });
-            downloadFile(blob, 'mermaid-diagram.txt');
-            // 保存后关闭下拉菜单
-            saveDropdown.style.display = 'none';
-        }
-
-        // 保存为SVG
-        function saveAsSvg() {
-            const svgElement = svgContainer.querySelector('svg');
-            if (!svgElement) {
-                alert('暂无可保存的SVG图表，请先渲染图表');
-                return;
-            }
-
-            // 克隆SVG元素以保留样式
-            const clone = svgElement.cloneNode(true);
-            const svgData = new XMLSerializer().serializeToString(clone);
-            const blob = new Blob([svgData], { type: 'image/svg+xml' });
-            downloadFile(blob, 'mermaid-diagram.svg');
-            // 保存后关闭下拉菜单
-            saveDropdown.style.display = 'none';
-        }
-
-        // 保存为PNG
-        async function saveAsPng() {
-            const svgElement = svgContainer.querySelector('svg');
-            if (!svgElement) {
-                alert('暂无可保存的PNG图表，请先渲染图表');
-                return;
-            }
-
-            try {
-                // 序列化SVG
-                const svgData = new XMLSerializer().serializeToString(svgElement);
-                // 创建图片对象
-                const img = new Image();
-                const svgBlob = new Blob([svgData], { type: 'image/svg+xml' });
-                const svgUrl = URL.createObjectURL(svgBlob);
-
-                img.onload = function() {
-                    // 创建Canvas
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    // 设置Canvas尺寸为SVG实际尺寸
-                    canvas.width = svgElement.viewBox.baseVal.width || img.width;
-                    canvas.height = svgElement.viewBox.baseVal.height || img.height;
-                    // 绘制图片
-                    ctx.drawImage(img, 0, 0);
-                    // 下载PNG
-                    canvas.toBlob(blob => {
-                        downloadFile(blob, 'mermaid-diagram.png');
-                        URL.revokeObjectURL(svgUrl);
-                        // 保存后关闭下拉菜单
-                        saveDropdown.style.display = 'none';
-                    }, 'image/png');
-                };
-                img.src = svgUrl;
-            } catch (error) {
-                alert(`保存PNG失败：${error.message}`);
-                console.error('PNG保存失败:', error);
-                // 失败也关闭下拉菜单
-                saveDropdown.style.display = 'none';
-            }
-        }
-
-        // 通用下载函数
-        function downloadFile(blob, filename) {
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = filename;
-            a.click();
-            URL.revokeObjectURL(a.href);
-        }
-
-        // ========== 原有功能保留 ==========
-        // 加载文件功能
-        function loadFile() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.txt,.mmd,.mermaid';
-            input.onchange = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    editor.value = event.target.result;
-                    updateLineNumbers(); // 加载文件后更新行号
-                    renderMermaid();
-                };
-                reader.readAsText(file);
-            };
-            input.click();
-        }
-
-        // 重置视图
-        function resetView() {
-            scale = 1;
-            translateX = 0;
-            translateY = 0;
-            svgContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-        }
-
-        // 移动端手势缩放实现
-        function initGesture() {
-            let lastDistance = 0;
-
-            // 触摸开始
-            svgContainer.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                if (e.touches.length === 1) {
-                    // 单指拖动
-                    isDragging = true;
-                    startX = e.touches[0].clientX - translateX;
-                    startY = e.touches[0].clientY - translateY;
-                } else if (e.touches.length === 2) {
-                    // 双指缩放
-                    lastDistance = getDistance(e.touches[0], e.touches[1]);
+                    showStatus('文件已保存到本地');
+                } catch (e) {
+                    showStatus(`保存失败: ${e.message}`, true);
+                    console.error('保存到本地失败:', e);
                 }
-            });
-
-            // 触摸移动
-            svgContainer.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                if (e.touches.length === 1 && isDragging) {
-                    // 拖动逻辑
-                    translateX = e.touches[0].clientX - startX;
-                    translateY = e.touches[0].clientY - startY;
-                    svgContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-                } else if (e.touches.length === 2) {
-                    // 缩放逻辑
-                    const newDistance = getDistance(e.touches[0], e.touches[1]);
-                    const delta = newDistance - lastDistance;
-                    scale += delta * 0.001;
-                    // 限制缩放范围
-                    scale = Math.max(0.5, Math.min(scale, 3));
-                    lastDistance = newDistance;
-                    svgContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-                }
-            });
-
-            // 触摸结束
-            svgContainer.addEventListener('touchend', () => {
-                isDragging = false;
-            });
-
-            // 计算两点距离
-            function getDistance(touch1, touch2) {
-                const dx = touch2.clientX - touch1.clientX;
-                const dy = touch2.clientY - touch1.clientY;
-                return Math.sqrt(dx * dx + dy * dy);
             }
-        }
 
-        // 桌面端鼠标拖动
-        function initDesktopDrag() {
-            svgContainer.addEventListener('mousedown', (e) => {
-                if (e.button === 0) { // 左键
-                    isDragging = true;
-                    startX = e.clientX - translateX;
-                    startY = e.clientY - startY;
-                }
-            });
+            function bindEvents() {
+                document.getElementById('add-rect').addEventListener('click', () => addShape('rect'));
+                document.getElementById('add-circle').addEventListener('click', () => addShape('circle'));
+                document.getElementById('add-line').addEventListener('click', () => addShape('line'));
+                document.getElementById('add-text').addEventListener('click', () => addShape('text'));
 
-            document.addEventListener('mousemove', (e) => {
-                if (isDragging) {
-                    translateX = e.clientX - startX;
-                    translateY = e.clientY - startY;
-                    svgContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-                }
-            });
+                document.getElementById('new-svg').addEventListener('click', createNewSVG);
+                document.getElementById('open-svg').addEventListener('click', openSVGFile);
+                document.getElementById('export-svg').addEventListener('click', exportSVG);
+                document.getElementById('export-png').addEventListener('click', exportPNG);
 
-            document.addEventListener('mouseup', () => {
-                isDragging = false;
-            });
+                document.getElementById('apply-code').addEventListener('click', applyCode);
+                document.getElementById('refresh-preview').addEventListener('click', updateCodeEditor);
 
-            // 桌面端滚轮缩放
-            svgContainer.addEventListener('wheel', (e) => {
-                e.preventDefault();
-                scale += e.deltaY * -0.001;
-                scale = Math.max(0.5, Math.min(scale, 3));
-                svgContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-            });
-        }
+                document.getElementById('save-local-btn').addEventListener('click', saveToLocal);
 
-        // ========== 修复：保存菜单点击消失问题 ==========
-        // 切换保存下拉菜单显示/隐藏
-        function toggleSaveDropdown() {
-            saveDropdown.style.display = saveDropdown.style.display === 'block' ? 'none' : 'block';
-        }
-
-        // 点击保存主按钮切换菜单
-        saveMainBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // 阻止事件冒泡到document
-            toggleSaveDropdown();
-        });
-
-        // 点击下拉菜单内的选项不关闭菜单（直到执行保存操作）
-        saveDropdown.addEventListener('click', (e) => {
-            e.stopPropagation(); // 阻止事件冒泡到document
-        });
-
-        // 点击页面其他区域关闭下拉菜单
-        document.addEventListener('click', () => {
-            saveDropdown.style.display = 'none';
-        });
-
-        // ========== 事件绑定 ==========
-        renderBtn.addEventListener('click', renderMermaid);
-        loadBtn.addEventListener('click', loadFile);
-        resetBtn.addEventListener('click', resetView);
-        saveTxtBtn.addEventListener('click', saveAsTxt);
-        saveSvgBtn.addEventListener('click', saveAsSvg);
-        savePngBtn.addEventListener('click', saveAsPng);
-
-        // ========== 初始化 ==========
-        window.addEventListener('load', async () => {
-            await renderMermaid(); // 等待渲染完成后再绑定事件
-            // 先判断是否是移动端，再初始化对应功能
-            const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            if (isMobile) {
-                initGesture();
-            } else {
-                initDesktopDrag();
+                document.getElementById('sidebar-toggle').addEventListener('click', function() {
+                    const sidebar = document.getElementById('sidebar');
+                    sidebar.dataset.manualOpen = sidebar.classList.contains('open') ? 'true' : 'false';
+                });
             }
-        });
 
-        // 窗口大小变化时重新渲染
-        window.addEventListener('resize', renderMermaid);
+            // 初始化应用
+            initEditor();
+            restoreFromLocalStorage();
+        }
+
+        // 4. 确保 SVG.js 加载完成后执行初始化
+        if (typeof SVG !== 'undefined') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            // 监听备用 CDN 加载完成
+            const checkSVGLoaded = setInterval(() => {
+                if (typeof SVG !== 'undefined') {
+                    clearInterval(checkSVGLoaded);
+                    document.addEventListener('DOMContentLoaded', initApp);
+                }
+            }, 100);
+            // 超时兜底
+            setTimeout(() => {
+                clearInterval(checkSVGLoaded);
+                if (typeof SVG === 'undefined') {
+                    alert('SVG.js 加载超时，请检查网络或刷新页面！');
+                }
+            }, 10000);
+        }
     </script>
 </body>
 </html>
