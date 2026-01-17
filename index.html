@@ -38,7 +38,7 @@
             gap: 1.5rem;
             width: 100%;
         }
-        .editor-btn {
+        .tools-btn {
             padding: 1.2rem;
             font-size: 1.1rem;
             border: none;
@@ -55,11 +55,14 @@
         .svg-btn {
             background-color: #2196f3;
         }
-        .editor-btn:hover {
+        .picmerge-btn {
+            background-color: #f321b4;
+        }
+        .tools-btn:hover {
             transform: translateY(-3px);
             box-shadow: 0 6px 16px rgba(0,0,0,0.15);
         }
-        .editor-btn:active {
+        .tools-btn:active {
             transform: translateY(1px);
         }
         footer {
@@ -74,11 +77,14 @@
         <h1>在线工具导航</h1>
         <div class="btn-group">
             <!-- 跳转链接匹配你的文件路径，无需修改 -->
-            <a href="./mermaid/" class="editor-btn mermaid-btn">
+            <a href="./mermaid/" class="tools-btn mermaid-btn">
                 Mermaid 在线编辑器
             </a>
-            <a href="./svg/" class="editor-btn svg-btn">
+            <a href="./svg/" class="tools-btn svg-btn">
                 SVG 在线编辑器
+            </a>
+            <a href="./picmerge/" class="tools-btn picmerge-btn">
+                在线图片合并器
             </a>
         </div>
     </div>

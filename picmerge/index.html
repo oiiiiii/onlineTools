@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线图片拼接工具 - 横向/纵向合并长图</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-user-select: none;
+            user-select: none;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --success: #10b981;
+            --success-hover: #059669;
+            --bg-dark: #f9fafb;
+            --bg-light: #ffffff;
+            --text: #111827;
+            --border: #d1d5db;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: var(--bg-light);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 32px;
+            color: var(--primary);
+            font-size: clamp(1.5rem, 3vw, 2rem);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .form-label {
+            min-width: 80px;
+            font-weight: 600;
+        }
+
+        .form-field {
+            flex: 1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .radio-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
+        input[type="radio"] {
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            font-size: 16px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-primary:active {
+            background-color: #1e40af;
+        }
+
+        .btn-reset {
+            background-color: var(--bg-dark);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-reset:hover {
+            background-color: #f3f4f6;
+        }
+
+        .file-upload-area {
+            margin: 24px 0;
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .file-upload-area:hover {
+            border-color: var(--primary);
+            background-color: rgba(37, 99, 235, 0.05);
+        }
+
+        .file-upload-area.active {
+            border-color: var(--primary);
+            background-color: rgba(37, 99, 235, 0.1);
+        }
+
+        .file-list {
+            margin: 20px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            background-color: var(--bg-dark);
+        }
+
+        .file-item:hover {
+            background-color: #f3f4f6;
+        }
+
+        .file-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin: 0 12px;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            transition: all 0.2s ease;
+        }
+
+        .remove-btn {
+            background-color: var(--danger);
+        }
+
+        .remove-btn:hover {
+            background-color: var(--danger-hover);
+        }
+
+        .move-up-btn, .move-down-btn {
+            background-color: var(--success);
+        }
+
+        .move-up-btn:hover, .move-down-btn:hover {
+            background-color: var(--success-hover);
+        }
+
+        .result-area {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+        }
+
+        .result-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .result-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .result-img {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+
+            .form-group {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .form-label {
+                min-width: unset;
+            }
+
+            .form-field {
+                width: 100%;
+            }
+
+            .file-upload-area {
+                padding: 20px 10px;
+            }
+        }
+
+        /* 拖拽遮罩层 */
+        .drop-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(37, 99, 235, 0.8);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            backdrop-filter: blur(4px);
+        }
+
+        .drop-overlay.active {
+            display: flex;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>图片拼接工具</h1>
+
+        <!-- 合并设置 -->
+        <div class="form-group">
+            <label class="form-label">合并模式：</label>
+            <div class="form-field">
+                <label class="radio-item">
+                    <input type="radio" name="orientation" value="vertical" checked> 纵向拼接
+                </label>
+                <label class="radio-item">
+                    <input type="radio" name="orientation" value="horizontal"> 横向拼接
+                </label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">输出格式：</label>
+            <div class="form-field">
+                <label class="radio-item">
+                    <input type="radio" name="format" value="jpeg" checked onchange="toggleQuality()"> JPEG
+                </label>
+                <label class="radio-item">
+                    <input type="radio" name="format" value="png" onchange="toggleQuality()"> PNG
+                </label>
+            </div>
+        </div>
+
+        <div class="form-group" id="quality-group">
+            <label class="form-label">图片质量：</label>
+            <div class="form-field">
+                <label class="radio-item">
+                    <input type="radio" name="quality" value="0.95" checked> 极高 (95%)
+                </label>
+                <label class="radio-item">
+                    <input type="radio" name="quality" value="0.8"> 高 (80%)
+                </label>
+                <label class="radio-item">
+                    <input type="radio" name="quality" value="0.6"> 中 (60%)
+                </label>
+                <label class="radio-item">
+                    <input type="radio" name="quality" value="0.4"> 低 (40%)
+                </label>
+            </div>
+        </div>
+
+        <!-- 文件上传区域 -->
+        <div class="file-upload-area" id="upload-area">
+            <p>点击选择图片 | 拖拽图片到此处 | 粘贴剪贴板图片</p>
+            <input type="file" id="file-input" accept="image/*" multiple class="hidden">
+        </div>
+
+        <!-- 文件列表 -->
+        <div class="file-list" id="file-list"></div>
+
+        <!-- 操作按钮 -->
+        <div class="form-group">
+            <label class="form-label"></label>
+            <div class="form-field">
+                <button class="btn btn-primary" id="merge-btn">开始拼接</button>
+                <button class="btn btn-reset" id="reset-btn">清空列表</button>
+            </div>
+        </div>
+
+        <!-- 结果区域 -->
+        <div class="result-area" id="result-area" class="hidden">
+            <div class="result-title">拼接结果：</div>
+            <div class="result-buttons" id="result-buttons"></div>
+            <!-- 给图片添加hidden类，初始隐藏 -->
+            <img id="result-img" class="result-img hidden" alt="拼接后的图片">
+        </div>
+    </div>
+
+    <!-- 拖拽遮罩层 -->
+    <div class="drop-overlay" id="drop-overlay">
+        释放图片完成上传
+    </div>
+
+    <script>
+        // 全局变量
+        let imageList = [];
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const fileList = document.getElementById('file-list');
+        const mergeBtn = document.getElementById('merge-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const resultArea = document.getElementById('result-area');
+        const resultButtons = document.getElementById('result-buttons');
+        const resultImg = document.getElementById('result-img');
+        const dropOverlay = document.getElementById('drop-overlay');
+        const qualityGroup = document.getElementById('quality-group');
+
+        // 初始化事件监听
+        function initEvents() {
+            // 点击上传区域触发文件选择
+            uploadArea.addEventListener('click', () => fileInput.click());
+            
+            // 文件选择事件
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            // 重置按钮
+            resetBtn.addEventListener('click', resetAll);
+            
+            // 拼接按钮
+            mergeBtn.addEventListener('click', mergeImages);
+            
+            // 拖拽事件
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                document.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            // 拖拽进入
+            document.addEventListener('dragenter', () => dropOverlay.classList.add('active'), false);
+            
+            // 拖拽离开
+            document.addEventListener('dragleave', (e) => {
+                if (!document.elementFromPoint(e.clientX, e.clientY).closest('.drop-overlay')) {
+                    dropOverlay.classList.remove('active');
+                }
+            }, false);
+            
+            // 拖拽释放
+            document.addEventListener('drop', handleDrop, false);
+            
+            // 粘贴事件
+            document.addEventListener('paste', handlePaste, false);
+        }
+
+        // 阻止默认拖拽行为
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // 处理文件选择
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        }
+
+        // 处理拖拽文件
+        function handleDrop(e) {
+            dropOverlay.classList.remove('active');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        }
+
+        // 处理粘贴图片
+        function handlePaste(e) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            const files = [];
+            
+            for (let item of items) {
+                if (item.kind === 'file' && item.type.startsWith('image/')) {
+                    files.push(item.getAsFile());
+                }
+            }
+            
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        }
+
+        // 处理文件并加载图片
+        function processFiles(files) {
+            Array.from(files).forEach(file => {
+                if (!file.type.startsWith('image/')) {
+                    alert('请选择图片文件！');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // 存储图片信息
+                        const imageInfo = {
+                            id: Date.now() + Math.random(),
+                            name: file.name,
+                            src: e.target.result,
+                            width: img.width,
+                            height: img.height,
+                            file: file,
+                            imgObj: img // 缓存加载完成的Image对象
+                        };
+                        
+                        imageList.push(imageInfo);
+                        renderFileList();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // 渲染文件列表
+        function renderFileList() {
+            fileList.innerHTML = '';
+            
+            if (imageList.length === 0) {
+                fileList.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 10px;">暂无图片</div>';
+                return;
+            }
+
+            imageList.forEach((item, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.dataset.id = item.id;
+                
+                fileItem.innerHTML = `
+                    <span class="file-index">${index + 1}</span>
+                    <span class="file-name">${item.name}</span>
+                    <div class="file-actions">
+                        <button class="action-btn move-up-btn" title="上移" data-index="${index}">↑</button>
+                        <button class="action-btn move-down-btn" title="下移" data-index="${index}">↓</button>
+                        <button class="action-btn remove-btn" title="删除" data-index="${index}">×</button>
+                    </div>
+                `;
+                
+                // 绑定操作按钮事件
+                fileItem.querySelector('.remove-btn').addEventListener('click', () => removeImage(index));
+                fileItem.querySelector('.move-up-btn').addEventListener('click', () => moveImage(index, 'up'));
+                fileItem.querySelector('.move-down-btn').addEventListener('click', () => moveImage(index, 'down'));
+                
+                fileList.appendChild(fileItem);
+            });
+        }
+
+        // 删除图片
+        function removeImage(index) {
+            if (confirm('确定要删除这张图片吗？')) {
+                imageList.splice(index, 1);
+                renderFileList();
+            }
+        }
+
+        // 移动图片
+        function moveImage(index, direction) {
+            if (direction === 'up' && index > 0) {
+                // 上移
+                [imageList[index], imageList[index - 1]] = [imageList[index - 1], imageList[index]];
+            } else if (direction === 'down' && index < imageList.length - 1) {
+                // 下移
+                [imageList[index], imageList[index + 1]] = [imageList[index + 1], imageList[index]];
+            }
+            renderFileList();
+        }
+
+        // 切换质量设置显示/隐藏
+        function toggleQuality() {
+            const format = document.querySelector('input[name="format"]:checked').value;
+            qualityGroup.classList.toggle('hidden', format === 'png');
+        }
+
+        // 合并图片（修复异步加载问题）
+
+        function mergeImages() {
+            if (imageList.length < 2) {
+                alert('请至少选择2张图片进行拼接！');
+                return;
+            }
+
+            // 获取设置参数
+            const orientation = document.querySelector('input[name="orientation"]:checked').value;
+            const format = document.querySelector('input[name="format"]:checked').value;
+            const quality = format === 'jpeg' ? parseFloat(document.querySelector('input[name="quality"]:checked').value) : 1.0;
+
+            // 创建canvas
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // 计算canvas尺寸
+            let canvasWidth = 0;
+            let canvasHeight = 0;
+
+            if (orientation === 'vertical') {
+                // 纵向拼接：宽度取最大，高度累加
+                canvasWidth = Math.max(...imageList.map(img => img.width));
+                canvasHeight = imageList.reduce((sum, img) => sum + img.height, 0);
+            } else {
+                // 横向拼接：高度取最大，宽度累加
+                canvasWidth = imageList.reduce((sum, img) => sum + img.width, 0);
+                canvasHeight = Math.max(...imageList.map(img => img.height));
+            }
+
+            // 设置canvas尺寸
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+
+            // 先填充整体背景（JPEG格式）
+            if (format === 'jpeg') {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            }
+
+            // 绘制图片（使用已加载完成的Image对象）
+            let x = 0;
+            let y = 0;
+
+            imageList.forEach(imgInfo => {
+                // 直接使用缓存的已加载完成的Image对象
+                ctx.drawImage(imgInfo.imgObj, x, y, imgInfo.width, imgInfo.height);
+
+                // 更新坐标
+                if (orientation === 'vertical') {
+                    y += imgInfo.height;
+                } else {
+                    x += imgInfo.width;
+                }
+            });
+
+            // 生成结果图片URL
+            const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+            const resultUrl = canvas.toDataURL(mimeType, quality);
+
+            // 生成Blob用于下载
+            canvas.toBlob(blob => {
+                const blobUrl = URL.createObjectURL(blob);
+                const fileName = `拼接图片_${new Date().getTime()}.${format}`;
+
+                // 显示结果区域
+                resultArea.classList.remove('hidden');
+                // 移除图片的hidden类，显示图片
+                resultImg.classList.remove('hidden');
+                resultImg.src = blobUrl;
+
+                // 生成下载按钮
+                resultButtons.innerHTML = `
+                    <a href="${blobUrl}" download="${fileName}" class="btn btn-primary">下载图片</a>
+                    <a href="${blobUrl}" target="_blank" class="btn btn-reset">新窗口查看</a>
+                `;
+            }, mimeType, quality);
+        }
+
+        // 重置所有（添加隐藏图片逻辑）
+        function resetAll() {
+            imageList = [];
+            fileInput.value = '';
+            renderFileList();
+            resultArea.classList.add('hidden');
+            // 清空图片src + 添加hidden类隐藏
+            resultImg.src = '';
+            resultImg.classList.add('hidden');
+        }
+
+        // 初始化
+        window.onload = () => {
+            initEvents();
+            renderFileList();
+            toggleQuality(); // 初始化质量设置显示状态
+        };
+    </script>
+</body>
+</html>
