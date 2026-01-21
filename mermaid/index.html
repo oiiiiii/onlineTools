@@ -621,6 +621,13 @@
             saveDropdown.style.display = 'none';
         });
 
+        // ========== 检查Canvas支持 ==========
+        function checkCanvasSupport() {
+            const canvas = document.createElement('canvas');
+            return !!(canvas.getContext && canvas.getContext('2d'));
+        }
+
+
         // ========== 事件绑定 & 初始化 ==========
         // 初始化行号
         updateLineNumbers();
