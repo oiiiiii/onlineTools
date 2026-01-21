@@ -369,7 +369,6 @@
             saveDropdown.style.display = 'none';
         }
 
-
         async function saveAsPng() {
     const svgElement = svgContainer.querySelector('svg');
     if (!svgElement) {
@@ -378,12 +377,27 @@
     }
 
     try {
-        const svgData = new XMLSerializer().serializeToString(svgElement);
-        const img = new Image();
-        const svgBlob = new Blob([svgData], { type: 'image/svg+xml' });
+        // 1. 克隆并清理SVG，移除外部资源引用，避免跨域污染
+        const svgClone = svgElement.cloneNode(true);
+        
+        // 移除可能导致跨域的外部资源（如外部字体、图片）
+        svgClone.querySelectorAll('image[href^="http"], image[href^="data"], foreignObject').forEach(el => el.remove());
+        
+        // 强制设置SVG背景为白色（避免透明背景导出问题）
+        svgClone.setAttribute('width', svgClone.viewBox.baseVal.width || svgClone.clientWidth);
+        svgClone.setAttribute('height', svgClone.viewBox.baseVal.height || svgClone.clientHeight);
+        svgClone.style.backgroundColor = 'white';
+        svgClone.style.fill = 'currentColor'; // 确保颜色正常
+        
+        // 2. 将SVG序列化为字符串，并转成不带外部引用的Data URL
+        const svgData = new XMLSerializer().serializeToString(svgClone);
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
         const svgUrl = URL.createObjectURL(svgBlob);
 
-        // 添加图片加载错误处理
+        const img = new Image();
+        // 关键：设置crossOrigin（解决跨域污染核心）
+        img.crossOrigin = 'anonymous'; 
+
         img.onerror = function() {
             alert('图片加载失败，请重试');
             URL.revokeObjectURL(svgUrl);
@@ -394,78 +408,40 @@
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
-            // 获取SVG尺寸
-            const svgWidth = svgElement.viewBox.baseVal.width || svgElement.clientWidth;
-            const svgHeight = svgElement.viewBox.baseVal.height || svgElement.clientHeight;
+            // 获取SVG实际尺寸
+            const svgWidth = parseInt(svgClone.getAttribute('width')) || 800;
+            const svgHeight = parseInt(svgClone.getAttribute('height')) || 600;
             
-            // 设置Canvas尺寸
-            canvas.width = svgWidth;
-            canvas.height = svgHeight;
+            // 设置Canvas尺寸（放大2倍，提升PNG清晰度）
+            canvas.width = svgWidth * 2;
+            canvas.height = svgHeight * 2;
+            ctx.scale(2, 2); // 缩放上下文，保证高清
             
-            // 设置白色背景（移动端透明背景可能有问题）
+            // 绘制白色背景（解决透明背景问题）
             ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillRect(0, 0, svgWidth, svgHeight);
             
-            // 绘制SVG
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            // 绘制SVG到Canvas
+            ctx.drawImage(img, 0, 0, svgWidth, svgHeight);
             
-            // 移动端专用下载方法
-            canvas.toBlob(blob => {
-                if (!blob) {
-                    alert('生成PNG文件失败');
-                    URL.revokeObjectURL(svgUrl);
-                    saveDropdown.style.display = 'none';
-                    return;
-                }
-                
-                // 移动端兼容性更好的下载方式
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = 'mermaid-diagram.png';
-                
-                // 移动端需要不同的下载策略
-                if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-                    // 方法1: 尝试在新窗口打开（适合移动端）
-                    const newWindow = window.open();
-                    if (newWindow) {
-                        newWindow.document.write('<img src="' + a.href + '" />');
-                        // 提示用户长按保存
-                        newWindow.document.write('<p style="text-align:center;padding:20px;">长按图片选择"保存图像"</p>');
-                    } else {
-                        // 方法2: 使用data URL直接显示图片
-                        const dataUrl = canvas.toDataURL('image/png');
-                        const imgView = document.createElement('div');
-                        imgView.style.cssText = `
-                            position: fixed;
-                            top: 0;
-                            left: 0;
-                            width: 100%;
-                            height: 100%;
-                            background: rgba(0,0,0,0.8);
-                            z-index: 10000;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: center;
-                        `;
-                        imgView.innerHTML = `
-                            <img src="${dataUrl}" style="max-width: 90%; max-height: 70%;" />
-                            <p style="color: white; margin-top: 20px;">长按图片选择"保存图像"</p>
-                            <button onclick="this.parentElement.remove()" style="margin-top: 20px; padding: 10px 20px;">关闭</button>
-                        `;
-                        document.body.appendChild(imgView);
+            // 3. 修复toBlob跨域问题：优先用toDataURL降级方案
+            try {
+                // 尝试直接导出Blob（现代浏览器）
+                canvas.toBlob(blob => {
+                    if (!blob) {
+                        throw new Error('Blob生成失败');
                     }
-                } else {
-                    // PC端使用原来的下载方式
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                }
-                
+                    handlePngDownload(blob);
+                }, 'image/png', 1.0); // 1.0为最高质量
+            } catch (e) {
+                // 降级方案：用toDataURL生成PNG
+                const dataUrl = canvas.toDataURL('image/png', 1.0);
+                const blob = dataURLToBlob(dataUrl);
+                handlePngDownload(blob);
+            } finally {
                 URL.revokeObjectURL(svgUrl);
-                URL.revokeObjectURL(a.href);
                 saveDropdown.style.display = 'none';
-            }, 'image/png');
+            }
         };
         
         img.src = svgUrl;
@@ -474,6 +450,64 @@
         console.error('PNG保存失败:', error);
         saveDropdown.style.display = 'none';
     }
+}
+
+// 辅助函数1：处理PNG下载（复用原有逻辑）
+function handlePngDownload(blob) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'mermaid-diagram.png';
+    
+    if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        const newWindow = window.open();
+        if (newWindow) {
+            newWindow.document.write('<img src="' + a.href + '" />');
+            newWindow.document.write('<p style="text-align:center;padding:20px;">长按图片选择"保存图像"</p>');
+        } else {
+            const dataUrl = URL.createObjectURL(blob);
+            const imgView = document.createElement('div');
+            imgView.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.8);
+                z-index: 10000;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            `;
+            imgView.innerHTML = `
+                <img src="${dataUrl}" style="max-width: 90%; max-height: 70%;" />
+                <p style="color: white; margin-top: 20px;">长按图片选择"保存图像"</p>
+                <button onclick="this.parentElement.remove()" style="margin-top: 20px; padding: 10px 20px;">关闭</button>
+            `;
+            document.body.appendChild(imgView);
+        }
+    } else {
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+    
+    setTimeout(() => {
+        URL.revokeObjectURL(a.href);
+    }, 1000);
+}
+
+// 辅助函数2：DataURL转Blob（降级方案用）
+function dataURLToBlob(dataUrl) {
+    const arr = dataUrl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
 }
 
         function downloadFile(blob, filename) {
