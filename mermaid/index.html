@@ -369,45 +369,139 @@
             saveDropdown.style.display = 'none';
         }
 
+
         async function saveAsPng() {
-            const svgElement = svgContainer.querySelector('svg');
-            if (!svgElement) {
-                alert('暂无可保存的PNG图表，请先渲染图表');
-                return;
-            }
+    const svgElement = svgContainer.querySelector('svg');
+    if (!svgElement) {
+        alert('暂无可保存的PNG图表，请先渲染图表');
+        return;
+    }
 
-            try {
-                const svgData = new XMLSerializer().serializeToString(svgElement);
-                const img = new Image();
-                const svgBlob = new Blob([svgData], { type: 'image/svg+xml' });
-                const svgUrl = URL.createObjectURL(svgBlob);
+    try {
+        const svgData = new XMLSerializer().serializeToString(svgElement);
+        const img = new Image();
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml' });
+        const svgUrl = URL.createObjectURL(svgBlob);
 
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = svgElement.viewBox.baseVal.width || img.width;
-                    canvas.height = svgElement.viewBox.baseVal.height || img.height;
-                    ctx.drawImage(img, 0, 0);
-                    canvas.toBlob(blob => {
-                        downloadFile(blob, 'mermaid-diagram.png');
-                        URL.revokeObjectURL(svgUrl);
-                        saveDropdown.style.display = 'none';
-                    }, 'image/png');
-                };
-                img.src = svgUrl;
-            } catch (error) {
-                alert(`保存PNG失败：${error.message}`);
-                console.error('PNG保存失败:', error);
+        // 添加图片加载错误处理
+        img.onerror = function() {
+            alert('图片加载失败，请重试');
+            URL.revokeObjectURL(svgUrl);
+            saveDropdown.style.display = 'none';
+        };
+
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 获取SVG尺寸
+            const svgWidth = svgElement.viewBox.baseVal.width || svgElement.clientWidth;
+            const svgHeight = svgElement.viewBox.baseVal.height || svgElement.clientHeight;
+            
+            // 设置Canvas尺寸
+            canvas.width = svgWidth;
+            canvas.height = svgHeight;
+            
+            // 设置白色背景（移动端透明背景可能有问题）
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制SVG
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            // 移动端专用下载方法
+            canvas.toBlob(blob => {
+                if (!blob) {
+                    alert('生成PNG文件失败');
+                    URL.revokeObjectURL(svgUrl);
+                    saveDropdown.style.display = 'none';
+                    return;
+                }
+                
+                // 移动端兼容性更好的下载方式
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'mermaid-diagram.png';
+                
+                // 移动端需要不同的下载策略
+                if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                    // 方法1: 尝试在新窗口打开（适合移动端）
+                    const newWindow = window.open();
+                    if (newWindow) {
+                        newWindow.document.write('<img src="' + a.href + '" />');
+                        // 提示用户长按保存
+                        newWindow.document.write('<p style="text-align:center;padding:20px;">长按图片选择"保存图像"</p>');
+                    } else {
+                        // 方法2: 使用data URL直接显示图片
+                        const dataUrl = canvas.toDataURL('image/png');
+                        const imgView = document.createElement('div');
+                        imgView.style.cssText = `
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                            background: rgba(0,0,0,0.8);
+                            z-index: 10000;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: center;
+                        `;
+                        imgView.innerHTML = `
+                            <img src="${dataUrl}" style="max-width: 90%; max-height: 70%;" />
+                            <p style="color: white; margin-top: 20px;">长按图片选择"保存图像"</p>
+                            <button onclick="this.parentElement.remove()" style="margin-top: 20px; padding: 10px 20px;">关闭</button>
+                        `;
+                        document.body.appendChild(imgView);
+                    }
+                } else {
+                    // PC端使用原来的下载方式
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }
+                
+                URL.revokeObjectURL(svgUrl);
+                URL.revokeObjectURL(a.href);
                 saveDropdown.style.display = 'none';
-            }
-        }
+            }, 'image/png');
+        };
+        
+        img.src = svgUrl;
+    } catch (error) {
+        alert(`保存PNG失败：${error.message}`);
+        console.error('PNG保存失败:', error);
+        saveDropdown.style.display = 'none';
+    }
+}
 
         function downloadFile(blob, filename) {
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = filename;
-            a.click();
-            URL.revokeObjectURL(a.href);
+            
+            // 检测是否为移动设备
+            const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            if (isMobile) {
+                // 移动端：在新窗口打开或显示提示
+                const newWindow = window.open(a.href, '_blank');
+                if (!newWindow) {
+                    // 如果弹窗被阻止，显示提示
+                    alert('请在弹出窗口中选择"下载"或"保存"\n如未弹出，请检查浏览器设置');
+                }
+            } else {
+                // PC端：直接下载
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+            
+            // 延迟释放URL，确保下载完成
+            setTimeout(() => {
+                URL.revokeObjectURL(a.href);
+            }, 1000);
         }
 
         // ========== 加载文件 ==========
@@ -545,6 +639,15 @@
 
         // 页面加载时立即初始化 Mermaid + 渲染
         window.addEventListener('load', async () => {
+
+                // 检查Canvas支持
+            if (!checkCanvasSupport()) {
+                // 如果Canvas不支持，禁用PNG保存按钮
+                savePngBtn.disabled = true;
+                savePngBtn.title = "浏览器不支持PNG导出";
+                savePngBtn.style.opacity = "0.5";
+                savePngBtn.style.cursor = "not-allowed";
+            }
             await loadMermaid().catch(err => {
                 preview.innerHTML = `<div style="color: red; padding: 20px; text-align: left; font-size: 14px;">
                     <strong>渲染引擎加载失败：</strong><br>${err.message}<br>
