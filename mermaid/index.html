@@ -8,11 +8,7 @@
 
     <meta http-equiv="Content-Security-Policy" content="
     script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net 
-    'sha256-n6tX2bH0aaEToEUtLBZhk1qOzTIrrOi89ZKKsx+aFrQ=' 
-    'sha256-ieoeWczDHkReVBsRBqaal5AFMlBtNjMzgwKvLqi/tSU=' 
-    'sha256-B0DfbXA1ucSVhU3K4EogarQ6o4Vm7/n/5DOskK1JUfE=' 
-    'sha256-EvrazvWj+ry0EwccPDrshkAhPcTUkWo2j/5o3eWcVOM='
-    'sha256-46HRyifdJOLnNmJaqPeupiSkVt4eNMDPNfL9AqDmdg8=';
+    'sha256-n6tX2bH0aaEToEUtLBZhk1qOzTIrrOi89ZKKsx+aFrQ=';
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: blob:;
     connect-src 'self';
@@ -386,8 +382,8 @@
         // 1. 克隆并清理SVG，移除外部资源引用，避免跨域污染
         const svgClone = svgElement.cloneNode(true);
         
-        // 移除可能导致跨域的外部资源（如外部字体、图片）
-        svgClone.querySelectorAll('image[href^="http"], image[href^="data"], foreignObject').forEach(el => el.remove());
+        // 移除可能导致跨域的外部资源（如外部字体、图片），保留foreignObject（文字内容）
+        svgClone.querySelectorAll('image[href^="http"], image[href^="data"]').forEach(el => el.remove());
         
         // 强制设置SVG背景为白色（避免透明背景导出问题）
         svgClone.setAttribute('width', svgClone.viewBox.baseVal.width || svgClone.clientWidth);
@@ -521,22 +517,10 @@ function dataURLToBlob(dataUrl) {
             a.href = URL.createObjectURL(blob);
             a.download = filename;
             
-            // 检测是否为移动设备
-            const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            
-            if (isMobile) {
-                // 移动端：在新窗口打开或显示提示
-                const newWindow = window.open(a.href, '_blank');
-                if (!newWindow) {
-                    // 如果弹窗被阻止，显示提示
-                    alert('请在弹出窗口中选择"下载"或"保存"\n如未弹出，请检查浏览器设置');
-                }
-            } else {
-                // PC端：直接下载
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            }
+            // 统一使用标准下载方式，移除移动端特殊处理
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
             
             // 延迟释放URL，确保下载完成
             setTimeout(() => {
