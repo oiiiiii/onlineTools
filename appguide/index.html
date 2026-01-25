@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>应用创建向导</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 欢迎页面 -->
+        <div id="welcome-screen" class="screen active">
+            <div class="welcome-content">
+                <div class="welcome-icon">
+                    <i class="fas fa-rocket"></i>
+                </div>
+                <h1>应用创建向导</h1>
+                <p class="subtitle">通过简单的选择题，一步步明确您的应用需求，最终生成详细的需求清单。</p>
+                
+                <div class="features">
+                    <div class="feature">
+                        <i class="fas fa-list-check"></i>
+                        <span>选择题式交互</span>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-diagram-project"></i>
+                        <span>智能分支逻辑</span>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-file-lines"></i>
+                        <span>导出需求清单</span>
+                    </div>
+                </div>
+                
+                <button id="start-btn" class="btn-primary">
+                    开始创建向导
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                
+                <div class="tip">
+                    <i class="fas fa-lightbulb"></i>
+                    提示：您可以随时返回上一步修改答案
+                </div>
+            </div>
+        </div>
+        
+        <!-- 问题页面 -->
+        <div id="question-screen" class="screen">
+            <header class="app-header">
+                <div class="logo">
+                    <i class="fas fa-cube"></i>
+                    <span>应用向导</span>
+                </div>
+                <div class="progress-info">
+                    问题 <span id="current-step">1</span>/<span id="total-steps">10</span>
+                </div>
+            </header>
+            
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+            </div>
+            
+            <main class="question-container">
+                <div id="question-content">
+                    <!-- 问题会通过JS动态插入 -->
+                </div>
+                
+                <div class="navigation-buttons">
+                    <button id="prev-btn" class="btn-secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        上一步
+                    </button>
+                    <button id="next-btn" class="btn-primary" disabled>
+                        下一步
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </main>
+        </div>
+        
+        <!-- 结果页面 -->
+        <div id="result-screen" class="screen">
+            <div class="result-header">
+                <div class="success-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h1>需求清单已生成！</h1>
+                <p class="subtitle">以下是您为应用定义的所有需求，请检查并导出。</p>
+            </div>
+            
+            <div class="result-actions">
+                <button id="copy-btn" class="btn-action">
+                    <i class="far fa-copy"></i>
+                    复制到剪贴板
+                </button>
+                <button id="save-txt-btn" class="btn-action">
+                    <i class="fas fa-download"></i>
+                    保存为TXT文件
+                </button>
+                <button id="restart-btn" class="btn-action">
+                    <i class="fas fa-redo"></i>
+                    重新开始
+                </button>
+            </div>
+            
+            <div class="result-content">
+                <div class="result-header-bar">
+                    <h2><i class="fas fa-list-check"></i> 应用需求清单</h2>
+                    <div class="result-meta">
+                        <span id="result-date">生成日期：</span>
+                    </div>
+                </div>
+                
+                <div id="result-list">
+                    <!-- 结果会通过JS动态插入 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
