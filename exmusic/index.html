@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音乐格式转换工具 | 响应式</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --primary: #4F46E5;
+            --primary-light: #6366F1;
+            --secondary: #10B981;
+            --gray-100: #F3F4F6;
+            --gray-200: #E5E7EB;
+            --gray-700: #374151;
+            --gray-900: #111827;
+            --white: #FFFFFF;
+            --danger: #EF4444;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --radius: 8px;
+        }
+
+        body {
+            background-color: var(--gray-100);
+            color: var(--gray-900);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 2rem;
+            margin: 20px auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
+        }
+
+        .subtitle {
+            color: var(--gray-700);
+            font-size: clamp(1rem, 2vw, 1.2rem);
+        }
+
+        /* 上传区域 */
+        .upload-section {
+            border: 2px dashed var(--gray-200);
+            border-radius: var(--radius);
+            padding: 3rem 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            transition: border-color 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-section:hover {
+            border-color: var(--primary);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        /* 格式选择区域 */
+        .format-section {
+            display: none;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background-color: var(--gray-100);
+            border-radius: var(--radius);
+        }
+
+        .format-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .format-label {
+            font-weight: 500;
+            min-width: 120px;
+        }
+
+        select {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.8rem 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            font-size: 1rem;
+            background-color: var(--white);
+            cursor: pointer;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+        }
+
+        .format-note {
+            font-size: 0.9rem;
+            color: var(--gray-700);
+            margin-top: 0.5rem;
+            line-height: 1.5;
+        }
+
+        /* 按钮样式 */
+        .btn {
+            display: inline-block;
+            background-color: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin: 0.5rem 0.25rem;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-light);
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary);
+        }
+
+        .btn-secondary:hover {
+            background-color: #059669;
+        }
+
+        .btn-danger {
+            background-color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background-color: #DC2626;
+        }
+
+        /* 进度和结果区域 */
+        .progress-section {
+            display: none;
+            margin: 2rem 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: var(--gray-200);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--secondary);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .result-section {
+            display: none;
+            margin: 2rem 0;
+        }
+
+        .file-info {
+            padding: 1rem;
+            background-color: var(--gray-100);
+            border-radius: var(--radius);
+            margin-bottom: 1rem;
+        }
+
+        /* 提示信息 */
+        .alert {
+            padding: 1rem;
+            border-radius: var(--radius);
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .alert-success {
+            background-color: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--secondary);
+            color: #065F46;
+        }
+
+        .alert-error {
+            background-color: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--danger);
+            color: #991B1B;
+        }
+
+        /* 加载动画 */
+        .loader {
+            display: none;
+            border: 4px solid var(--gray-200);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 3rem;
+            color: var(--gray-700);
+            font-size: 0.9rem;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1.5rem;
+            }
+            
+            .upload-section {
+                padding: 2rem 1rem;
+            }
+            
+            .format-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            
+            .format-label {
+                min-width: auto;
+            }
+            
+            select {
+                width: 100%;
+                min-width: auto;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .btn {
+                display: block;
+                width: 100%;
+                margin: 0.5rem 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>音乐格式转换工具</h1>
+            <p class="subtitle">纯前端处理 | 支持多种音频格式互转 | 响应式适配</p>
+        </header>
+
+        <!-- 上传区域 -->
+        <div class="upload-section" id="upload-area">
+            <div class="upload-icon">🎵</div>
+            <h3>点击或拖拽音频文件到此处上传</h3>
+            <p>支持 MP3、WAV、FLAC、OGG、AAC、M4A 等格式</p>
+            <input type="file" id="file-input" accept="audio/*">
+            <button class="btn" id="select-file-btn">选择音频文件</button>
+        </div>
+
+        <!-- 格式选择区域 -->
+        <div class="format-section" id="format-section">
+            <h3>转换设置</h3>
+            <div class="format-row">
+                <label class="format-label">源文件信息：</label>
+                <span id="source-file-info">未选择文件</span>
+            </div>
+            <div class="format-row">
+                <label class="format-label">目标格式：</label>
+                <select id="target-format">
+                    <option value="mp3" selected>MP3 (通用格式，体积小)</option>
+                    <option value="wav">WAV (无损，体积大)</option>
+                    <option value="flac">FLAC (无损压缩，推荐)</option>
+                    <option value="m4a">M4A (AAC编码，苹果常用)</option>
+                    <option value="ogg">OGG (开源格式)</option>
+                </select>
+            </div>
+            <div class="format-row">
+                <label class="format-label">音质设置：</label>
+                <select id="quality">
+                    <option value="128">128 kbps (普通音质)</option>
+                    <option value="192" selected>192 kbps (平衡音质)</option>
+                    <option value="256">256 kbps (高品质)</option>
+                    <option value="320">320 kbps (无损音质)</option>
+                </select>
+            </div>
+            <p class="format-note">
+                📌 提示：MP3 推荐 192-320 kbps；WAV/FLAC 为无损格式，音质设置不生效；
+                所有转换均在本地完成，文件不会上传到服务器。
+            </p>
+            <button class="btn btn-secondary" id="convert-btn">开始转换</button>
+            <button class="btn btn-danger" id="reset-btn">重新选择文件</button>
+        </div>
+
+        <!-- 提示信息 -->
+        <div class="alert alert-success" id="success-alert"></div>
+        <div class="alert alert-error" id="error-alert"></div>
+
+        <!-- 进度区域 -->
+        <div class="progress-section" id="progress-section">
+            <h3>转换进度</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <p id="progress-text">准备转换...</p>
+            <div class="loader" id="loader"></div>
+        </div>
+
+        <!-- 结果区域 -->
+        <div class="result-section" id="result-section">
+            <h3>转换完成</h3>
+            <div class="file-info">
+                <p><strong>文件名：</strong><span id="result-filename"></span></p>
+                <p><strong>格式：</strong><span id="result-format"></span></p>
+                <p><strong>音质：</strong><span id="result-quality"></span></p>
+            </div>
+            <button class="btn btn-secondary" id="download-btn">下载转换后的文件</button>
+            <button class="btn" id="convert-another-btn">转换另一个文件</button>
+        </div>
+
+        <div class="footer">
+            <p>纯前端实现 | 所有处理均在本地完成，数据不会上传到服务器 | 适配手机/平板/电脑</p>
+        </div>
+    </div>
+
+    <!-- 引入音频处理库（CDN） -->
+    <script src="https://cdn.jsdelivr.net/npm/ffmpeg.js@4.2.9003/dist/ffmpeg.min.js"></script>
+    <script>
+        // DOM 元素
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const selectFileBtn = document.getElementById('select-file-btn');
+        const formatSection = document.getElementById('format-section');
+        const sourceFileInfo = document.getElementById('source-file-info');
+        const targetFormat = document.getElementById('target-format');
+        const quality = document.getElementById('quality');
+        const convertBtn = document.getElementById('convert-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const progressSection = document.getElementById('progress-section');
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        const loader = document.getElementById('loader');
+        const resultSection = document.getElementById('result-section');
+        const resultFilename = document.getElementById('result-filename');
+        const resultFormat = document.getElementById('result-format');
+        const resultQuality = document.getElementById('result-quality');
+        const downloadBtn = document.getElementById('download-btn');
+        const convertAnotherBtn = document.getElementById('convert-another-btn');
+        const successAlert = document.getElementById('success-alert');
+        const errorAlert = document.getElementById('error-alert');
+
+        // 全局变量
+        let selectedFile = null;
+        let convertedBlob = null;
+        let ffmpeg = null;
+
+        // 支持的格式映射
+        const FORMAT_MAP = {
+            mp3: { mime: 'audio/mpeg', ext: 'mp3' },
+            wav: { mime: 'audio/wav', ext: 'wav' },
+            flac: { mime: 'audio/flac', ext: 'flac' },
+            m4a: { mime: 'audio/mp4', ext: 'm4a' },
+            ogg: { mime: 'audio/ogg', ext: 'ogg' }
+        };
+
+        // 初始化事件监听
+        function initEventListeners() {
+            // 上传区域点击事件
+            uploadArea.addEventListener('click', (e) => {
+                if (e.target !== selectFileBtn) {
+                    fileInput.click();
+                }
+                e.stopPropagation();
+            });
+
+            // 选择文件按钮
+            selectFileBtn.addEventListener('click', (e) => {
+                fileInput.click();
+                e.stopPropagation();
+            });
+
+            // 文件选择事件
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // 拖拽上传
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = 'var(--primary)';
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.style.borderColor = 'var(--gray-200)';
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = 'var(--gray-200)';
+                
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    handleFileSelect(e);
+                }
+            });
+
+            // 转换按钮
+            convertBtn.addEventListener('click', startConversion);
+
+            // 重置按钮
+            resetBtn.addEventListener('click', resetApp);
+
+            // 下载按钮
+            downloadBtn.addEventListener('click', downloadConvertedFile);
+
+            // 转换另一个文件
+            convertAnotherBtn.addEventListener('click', () => {
+                resetApp();
+            });
+        }
+
+        // 初始化 FFmpeg
+        async function initFFmpeg() {
+            if (ffmpeg) return ffmpeg;
+            
+            showProgress(0, '正在加载音频处理引擎...');
+            progressSection.style.display = 'block';
+
+            try {
+                ffmpeg = createFFmpeg({
+                    log: true,
+                    corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/ffmpeg-core.js'
+                });
+
+                // 监听日志更新进度
+                ffmpeg.setLogger(({ type, message }) => {
+                    if (type === 'info' && message.includes('frame=')) {
+                        const progressMatch = message.match(/time=(\d+:\d+:\d+\.\d+)/);
+                        if (progressMatch) {
+                            // 简单进度计算（实际可根据总时长优化）
+                            const currentProgress = Math.min(90, parseInt(progressFill.style.width) + 1);
+                            showProgress(currentProgress, `正在转换：${message.substring(0, 50)}...`);
+                        }
+                    }
+                });
+
+                await ffmpeg.load();
+                showProgress(10, '音频处理引擎加载完成！');
+                return ffmpeg;
+            } catch (error) {
+                throw new Error('FFmpeg 初始化失败：' + error.message);
+            }
+        }
+
+        // 处理文件选择
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // 检查文件类型
+            if (!file.type.startsWith('audio/') && !['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a'].some(ext => file.name.endsWith(ext))) {
+                showAlert('error', '请选择有效的音频文件！');
+                return;
+            }
+
+            selectedFile = file;
+            hideAlerts();
+            
+            // 显示文件信息
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            sourceFileInfo.textContent = `${file.name} (${fileSize} MB)`;
+            
+            // 显示格式选择区域
+            formatSection.style.display = 'block';
+            resultSection.style.display = 'none';
+            progressSection.style.display = 'none';
+        }
+
+        // 开始转换
+        async function startConversion() {
+            if (!selectedFile) {
+                showAlert('error', '请先选择音频文件！');
+                return;
+            }
+
+            try {
+                // 初始化 FFmpeg
+                await initFFmpeg();
+
+                // 获取转换参数
+                const targetFormatVal = targetFormat.value;
+                const qualityVal = quality.value;
+                const formatInfo = FORMAT_MAP[targetFormatVal];
+                const sourceFilename = `source.${selectedFile.name.split('.').pop()}`;
+                const outputFilename = `output.${formatInfo.ext}`;
+
+                // 显示进度
+                showProgress(10, '正在读取源文件...');
+                progressSection.style.display = 'block';
+                formatSection.style.display = 'none';
+                hideAlerts();
+
+                // 写入文件到 FFmpeg 虚拟文件系统
+                showProgress(20, '正在准备转换...');
+                ffmpeg.FS('writeFile', sourceFilename, await fetchFile(selectedFile));
+
+                // 构建转换命令
+                let cmd = ['-i', sourceFilename];
+                
+                // 根据目标格式添加参数
+                switch (targetFormatVal) {
+                    case 'mp3':
+                        cmd = cmd.concat(['-b:a', `${qualityVal}k`, '-f', 'mp3', outputFilename]);
+                        break;
+                    case 'wav':
+                        cmd = cmd.concat(['-f', 'wav', outputFilename]);
+                        break;
+                    case 'flac':
+                        cmd = cmd.concat(['-f', 'flac', outputFilename]);
+                        break;
+                    case 'm4a':
+                        cmd = cmd.concat(['-c:a', 'aac', '-b:a', `${qualityVal}k`, outputFilename]);
+                        break;
+                    case 'ogg':
+                        cmd = cmd.concat(['-c:a', 'libvorbis', '-b:a', `${qualityVal}k`, outputFilename]);
+                        break;
+                }
+
+                // 执行转换
+                showProgress(30, '开始转换音频格式...');
+                await ffmpeg.run(...cmd);
+
+                // 读取转换后的文件
+                showProgress(95, '转换完成，正在处理结果...');
+                const data = ffmpeg.FS('readFile', outputFilename);
+                convertedBlob = new Blob([data.buffer], { type: formatInfo.mime });
+
+                // 清理虚拟文件系统
+                ffmpeg.FS('unlink', sourceFilename);
+                ffmpeg.FS('unlink', outputFilename);
+
+                // 显示结果
+                showProgress(100, '转换完成！');
+                setTimeout(() => {
+                    progressSection.style.display = 'none';
+                    resultSection.style.display = 'block';
+                    
+                    // 更新结果信息
+                    const originalName = selectedFile.name.split('.').slice(0, -1).join('.');
+                    const resultName = `${originalName}.${formatInfo.ext}`;
+                    resultFilename.textContent = resultName;
+                    resultFormat.textContent = targetFormat.options[targetFormat.selectedIndex].text;
+                    resultQuality.textContent = quality.options[quality.selectedIndex].text;
+
+                    showAlert('success', `音频转换成功！文件格式：${formatInfo.ext.toUpperCase()}`);
+                }, 500);
+
+            } catch (error) {
+                progressSection.style.display = 'none';
+                formatSection.style.display = 'block';
+                showAlert('error', '转换失败：' + error.message);
+                console.error('转换错误：', error);
+            }
+        }
+
+        // 显示进度
+        function showProgress(percent, text) {
+            progressFill.style.width = `${percent}%`;
+            progressText.textContent = text;
+        }
+
+        // 下载转换后的文件
+        function downloadConvertedFile() {
+            if (!convertedBlob) return;
+
+            try {
+                const targetFormatVal = targetFormat.value;
+                const formatInfo = FORMAT_MAP[targetFormatVal];
+                const originalName = selectedFile.name.split('.').slice(0, -1).join('.');
+                const filename = `${originalName}.${formatInfo.ext}`;
+
+                // 创建下载链接
+                const url = URL.createObjectURL(convertedBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showAlert('success', '文件下载成功！');
+                }, 100);
+
+            } catch (error) {
+                showAlert('error', '下载失败：' + error.message);
+            }
+        }
+
+        // 显示提示信息
+        function showAlert(type, message) {
+            hideAlerts();
+            const alert = document.getElementById(`${type}-alert`);
+            alert.textContent = message;
+            alert.style.display = 'block';
+            
+            // 3秒后自动隐藏（错误提示不自动隐藏）
+            if (type === 'success') {
+                setTimeout(hideAlerts, 3000);
+            }
+        }
+
+        // 隐藏所有提示
+        function hideAlerts() {
+            successAlert.style.display = 'none';
+            errorAlert.style.display = 'none';
+        }
+
+        // 重置应用
+        function resetApp() {
+            fileInput.value = '';
+            selectedFile = null;
+            convertedBlob = null;
+            sourceFileInfo.textContent = '未选择文件';
+            
+            // 重置UI
+            hideAlerts();
+            formatSection.style.display = 'none';
+            progressSection.style.display = 'none';
+            resultSection.style.display = 'none';
+            progressFill.style.width = '0%';
+            progressText.textContent = '准备转换...';
+        }
+
+        // 初始化
+        window.onload = () => {
+            initEventListeners();
+            // 预加载 FFmpeg 核心（可选）
+            // initFFmpeg().catch(err => console.log('FFmpeg 预加载失败：', err));
+        };
+
+        // 兼容处理
+        if (!window.createFFmpeg) {
+            // 加载 FFmpeg 库
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/ffmpeg.min.js';
+            script.onload = initEventListeners;
+            document.head.appendChild(script);
+        }
+    </script>
+</body>
+</html>
